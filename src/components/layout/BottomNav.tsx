@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Home, List, UtensilsCrossed, Refrigerator, Settings } from 'lucide-react'
+import { Home, UtensilsCrossed, Refrigerator, Settings } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 const links = [
