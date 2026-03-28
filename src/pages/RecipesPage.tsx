@@ -22,7 +22,7 @@ export function RecipesPage() {
                 <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Oppskrifter</h1>
                 <button
                     onClick={() => navigate('/oppskrifter/ny')}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-neutral-500"
+                    className="min-w-11 min-h-11 flex items-center justify-center text-neutral-500"
                 >
                     <Plus size={22} />
                 </button>
@@ -39,7 +39,7 @@ export function RecipesPage() {
                     <button
                         key={recipe.id}
                         onClick={() => navigate(`/oppskrifter/${recipe.id}`)}
-                        className="w-full flex items-center gap-3 px-4 min-h-[60px] border-b border-neutral-100 dark:border-neutral-900 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
+                        className="w-full flex items-center gap-3 px-4 min-h-15 border-b border-neutral-100 dark:border-neutral-900 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
                     >
                         <div className="flex-1">
                             <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{recipe.name}</p>
@@ -70,7 +70,7 @@ export function RecipesPage() {
             </div>
 
             {/* FAB */}
-            <div className="fixed bottom-22 right-4 pb-[env(safe-area-inset-bottom)]">
+            <div className="fixed bottom-22 right-4">
                 <button
                     onClick={() => navigate('/oppskrifter/ny')}
                     className=" w-14 h-14 rounded-full bg-neutral-900 dark:bg-neutral-100 text-neutral-50 dark:text-neutral-900 flex items-center justify-center shadow-lg active:scale-95 transition-transform"

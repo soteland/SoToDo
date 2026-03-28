@@ -8,6 +8,7 @@ import { Input } from '../components/ui/input'
 import { Skeleton } from '../components/ui/skeleton'
 import { PALETTE, ALL_ICONS } from '../lib/listDefaults'
 import { useListColor } from '../hooks/useListColor'
+import { PrimaryButton } from '../components/ui/PrimaryButton'
 import type { ListType } from '../types'
 
 export function NewListPage() {
@@ -141,14 +142,13 @@ export function NewListPage() {
         </div>
 
         {/* Submit */}
-        <button
+        <PrimaryButton
           onClick={submitCustom}
           disabled={!name.trim() || createMutation.isPending}
-          className="w-full h-12 rounded-xl text-white font-medium transition-opacity disabled:opacity-40 active:opacity-80"
-          style={{ backgroundColor: displayColor }}
+          bgColor={displayColor}
         >
           {createMutation.isPending ? 'Oppretter...' : 'Opprett liste'}
-        </button>
+        </PrimaryButton>
       </div>
     </div>
   )

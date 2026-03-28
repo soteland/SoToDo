@@ -12,6 +12,25 @@ export async function fetchLists(): Promise<List[]> {
   return data as List[]
 }
 
+export async function fetchPrimaryListItems(): Promise<ListItem[]> {
+  const { data: lists, error: listError } = await supabase
+    .from('lists')
+    .select('id')
+    .eq('is_primary', true)
+    .limit(1)
+    .single()
+  if (listError) return []
+  const { data, error } = await supabase
+    .from('list_items')
+    .select('*')
+    .eq('list_id', lists.id)
+    .eq('is_checked', true)
+    .order('checked_at', { ascending: false })
+    .limit(30)
+  if (error) return []
+  return data as ListItem[]
+}
+
 export async function fetchList(id: string): Promise<List> {
   const { data, error } = await supabase
     .from('lists')

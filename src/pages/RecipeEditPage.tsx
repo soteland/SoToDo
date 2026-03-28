@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, Plus, Trash2, Link, Loader, ChevronUp, ChevronDown, Search } from 'lucide-react'
+import { ChevronLeft, Plus, Trash2, Link, Loader, ChevronUp, ChevronDown, Search, Minus } from 'lucide-react'
 import { Input } from '../components/ui/input'
-import { UnitPicker } from '../components/UnitPicker'
-import { normalizeItemName } from '../lib/utils'
+import { PrimaryButton } from '../components/ui/PrimaryButton'
+import { Sheet, SheetContent } from '../components/ui/sheet'
+import { Badge } from '../components/ui/badge'
+import { UNITS_EXTENDED } from '../components/UnitPicker'
+import { normalizeItemName, timeSinceLabel, scoreItem, daysSince } from '../lib/utils'
 import {
     fetchRecipe,
     createRecipe,
@@ -50,12 +53,12 @@ export function RecipeEditPage() {
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
     const [instructions, setInstructions] = useState<string[]>([''])
-    const [items, setItems] = useState<DraftItem[]>([blankItem()])
+    const [items, setItems] = useState<DraftItem[]>([])
     const [urlInput, setUrlInput] = useState('')
     const [importing, setImporting] = useState(false)
     const [importError, setImportError] = useState<string | null>(null)
+    const [pickerOpen, setPickerOpen] = useState(false)
 
-    // Refs for step textareas so we can focus after Enter
     const stepRefs = useRef<(HTMLTextAreaElement | null)[]>([])
 
     useEffect(() => {
@@ -66,7 +69,7 @@ export function RecipeEditPage() {
         setItems(
             existing.items?.length
                 ? existing.items.map(i => ({ key: newKey(), item_name: i.item_name, quantity: i.quantity, unit: i.unit, is_pantry_staple: i.is_pantry_staple }))
-                : [blankItem()]
+                : []
         )
     }, [existing])
 
@@ -117,8 +120,6 @@ export function RecipeEditPage() {
         }
     }
 
-    // ── Item helpers ──────────────────────────────────────────────
-
     function updateItem(key: string, patch: Partial<DraftItem>) {
         setItems(prev => prev.map(i => i.key === key ? { ...i, ...patch } : i))
     }
@@ -127,16 +128,17 @@ export function RecipeEditPage() {
         setItems(prev => prev.filter(i => i.key !== key))
     }
 
-    function pickCatalogItem(key: string, catalogItem: ListItem) {
-        setItems(prev => prev.map(i => i.key === key ? {
-            ...i,
-            item_name: catalogItem.name,
-            unit: catalogItem.unit,
-            is_pantry_staple: catalogItem.is_pantry_staple,
-        } : i))
+    function addFromPicker(name: string, quantity: number, unit: string) {
+        const normalized = normalizeItemName(name)
+        const catalogItem = (catalog ?? []).find(c => c.name_normalized === normalized)
+        setItems(prev => [...prev, {
+            key: newKey(),
+            item_name: name.trim(),
+            quantity,
+            unit,
+            is_pantry_staple: catalogItem?.is_pantry_staple ?? false,
+        }])
     }
-
-    // ── Step helpers ──────────────────────────────────────────────
 
     function updateStep(idx: number, val: string) {
         setInstructions(prev => prev.map((s, i) => i === idx ? val : s))
@@ -148,7 +150,6 @@ export function RecipeEditPage() {
             next.splice(idx + 1, 0, '')
             return next
         })
-        // Focus the new step after render
         setTimeout(() => stepRefs.current[idx + 1]?.focus(), 30)
     }
 
@@ -160,8 +161,8 @@ export function RecipeEditPage() {
         const to = idx + dir
         setInstructions(prev => {
             if (to < 0 || to >= prev.length) return prev
-            const next = [...prev]
-                ;[next[idx], next[to]] = [next[to], next[idx]]
+            const next = [...prev];
+            [next[idx], next[to]] = [next[to], next[idx]]
             return next
         })
         setTimeout(() => stepRefs.current[to]?.focus(), 30)
@@ -204,14 +205,18 @@ export function RecipeEditPage() {
                             onKeyDown={e => e.key === 'Enter' && handleImport()}
                             className="h-11 text-sm flex-1"
                         />
-                        <button
-                            onClick={handleImport}
-                            disabled={importing || !urlInput.trim()}
-                            className="h-11 px-3 rounded-lg bg-neutral-900 dark:bg-neutral-100 text-neutral-50 dark:text-neutral-900 flex items-center gap-1.5 text-sm font-medium disabled:opacity-40 active:opacity-70 shrink-0"
-                        >
-                            {importing ? <Loader size={16} className="animate-spin" /> : <Link size={16} />}
-                            Hent
-                        </button>
+
+                        <div>
+                            <PrimaryButton
+                                onClick={handleImport}
+                                disabled={importing || !urlInput.trim()}
+                                className=""
+                            >
+                                {importing ? <Loader size={16} className="animate-spin" /> : <Link size={16} />}
+                                Hent
+
+                            </PrimaryButton>
+                        </div>
                     </div>
                     {importError && <p className="text-xs text-red-500">{importError}</p>}
 
@@ -241,21 +246,21 @@ export function RecipeEditPage() {
                     {/* Ingredients */}
                     <div>
                         <p className="text-xs text-neutral-400 mb-2">Ingredienser</p>
-                        <div className="space-y-2">
-                            {items.map(item => (
-                                <IngredientRow
-                                    key={item.key}
-                                    item={item}
-                                    catalog={catalog ?? []}
-                                    onChange={patch => updateItem(item.key, patch)}
-                                    onRemove={() => removeItem(item.key)}
-                                    onPickCatalog={ci => pickCatalogItem(item.key, ci)}
-                                />
-                            ))}
-                        </div>
+                        {items.length > 0 && (
+                            <div className="mb-2">
+                                {items.map(item => (
+                                    <IngredientRow
+                                        key={item.key}
+                                        item={item}
+                                        onChange={patch => updateItem(item.key, patch)}
+                                        onRemove={() => removeItem(item.key)}
+                                    />
+                                ))}
+                            </div>
+                        )}
                         <button
-                            onClick={() => setItems(prev => [...prev, blankItem()])}
-                            className="mt-2 flex items-center gap-1.5 text-sm text-neutral-400 active:opacity-60"
+                            onClick={() => setPickerOpen(true)}
+                            className="flex items-center gap-1.5 text-sm text-neutral-400 active:opacity-60"
                         >
                             <Plus size={14} /> Legg til ingrediens
                         </button>
@@ -283,25 +288,14 @@ export function RecipeEditPage() {
                                         }}
                                     />
                                     <div className="flex flex-col gap-0.5 mt-1 shrink-0">
-                                        <button
-                                            onClick={() => moveStep(i, -1)}
-                                            disabled={i === 0}
-                                            className="p-1 text-neutral-300 dark:text-neutral-600 disabled:opacity-20 active:text-neutral-600"
-                                        >
+                                        <button onClick={() => moveStep(i, -1)} disabled={i === 0} className="p-1 text-neutral-300 dark:text-neutral-600 disabled:opacity-20 active:text-neutral-600">
                                             <ChevronUp size={14} />
                                         </button>
-                                        <button
-                                            onClick={() => moveStep(i, 1)}
-                                            disabled={i === instructions.length - 1}
-                                            className="p-1 text-neutral-300 dark:text-neutral-600 disabled:opacity-20 active:text-neutral-600"
-                                        >
+                                        <button onClick={() => moveStep(i, 1)} disabled={i === instructions.length - 1} className="p-1 text-neutral-300 dark:text-neutral-600 disabled:opacity-20 active:text-neutral-600">
                                             <ChevronDown size={14} />
                                         </button>
                                         {instructions.length > 1 && (
-                                            <button
-                                                onClick={() => removeStep(i)}
-                                                className="p-1 text-neutral-300 dark:text-neutral-600 active:text-red-500 transition-colors"
-                                            >
+                                            <button onClick={() => removeStep(i)} className="p-1 text-neutral-300 dark:text-neutral-600 active:text-red-500 transition-colors">
                                                 <Trash2 size={12} />
                                             </button>
                                         )}
@@ -324,107 +318,273 @@ export function RecipeEditPage() {
             </div>
 
             {/* Save button */}
-            <div className="fixed bottom-14 inset-x-0 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 bg-neutral-50 dark:bg-neutral-950 border-t border-neutral-100 dark:border-neutral-800">
-                <button
-                    onClick={() => saveMutation.mutate()}
-                    disabled={!canSave}
-                    className="w-full h-12 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-neutral-50 dark:text-neutral-900 font-medium disabled:opacity-40 active:opacity-80 transition-opacity"
-                >
+            <div className="fixed bottom-14 inset-x-0 px-4 pb-7 pt-2 bg-neutral-50 dark:bg-neutral-950 border-t border-neutral-100 dark:border-neutral-800">
+                <PrimaryButton onClick={() => saveMutation.mutate()} disabled={!canSave}>
                     {saveMutation.isPending ? 'Lagrer...' : 'Lagre'}
-                </button>
+                </PrimaryButton>
             </div>
-        </div>
+
+            {/* Ingredient picker sheet */}
+            <IngredientPickerSheet
+                open={pickerOpen}
+                onClose={() => setPickerOpen(false)}
+                catalog={catalog ?? []}
+                onAdd={addFromPicker}
+            />
+        </div >
     )
 }
 
-// ── Ingredient row with catalog search ────────────────────────
+// ── Ingredient display row ─────────────────────────────────────
 
-function IngredientRow({ item, catalog, onChange, onRemove, onPickCatalog }: {
+function stepSize(quantity: number): number {
+
+    if (quantity >= 100) return 100
+    if (quantity >= 10) return 10
+
+    return 1
+}
+
+function IngredientRow({ item, onChange, onRemove }: {
     item: DraftItem
-    catalog: ListItem[]
     onChange: (patch: Partial<DraftItem>) => void
     onRemove: () => void
-    onPickCatalog: (item: ListItem) => void
 }) {
-    const [focused, setFocused] = useState(false)
-    const [searchVal, setSearchVal] = useState(item.item_name)
-    const containerRef = useRef<HTMLDivElement>(null)
-
-    const normalizedSearch = normalizeItemName(searchVal)
-
-    const suggestions = focused && normalizedSearch.length > 0
-        ? catalog
-            .filter(ci => ci.name_normalized.includes(normalizedSearch))
-            .slice(0, 6)
-        : []
-
-    // Sync external item_name changes (e.g. from import)
-    useEffect(() => { setSearchVal(item.item_name) }, [item.item_name])
-
-    const handleBlur = useCallback(() => {
-        // Delay so tap on suggestion fires first
-        setTimeout(() => {
-            if (!containerRef.current?.contains(document.activeElement)) {
-                setFocused(false)
-                onChange({ item_name: searchVal })
-            }
-        }, 150)
-    }, [searchVal, onChange])
+    const [confirming, setConfirming] = useState(false)
 
     return (
-        <div ref={containerRef} className="space-y-1.5 border-b-2 border-neutral-100 dark:border-neutral-800 pb-2">
-            <div className="flex gap-2">
-                <div className="relative flex-1">
-                    <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
-                    <input
-                        value={searchVal}
-                        onChange={e => { setSearchVal(e.target.value); onChange({ item_name: e.target.value }) }}
-                        onFocus={() => setFocused(true)}
-                        onBlur={handleBlur}
-                        placeholder="Ingrediens..."
-                        className="w-full h-9 pl-7 pr-2 border rounded-lg border-neutral-200 dark:border-neutral-700 bg-transparent text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 outline-none focus:border-neutral-400"
-                    />
-                    {suggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg z-10 overflow-hidden">
-                            {suggestions.map(ci => (
-                                <button
-                                    key={ci.id}
-                                    type="button"
-                                    onMouseDown={e => e.preventDefault()}
-                                    onClick={() => { onPickCatalog(ci); setSearchVal(ci.name); setFocused(false) }}
-                                    className="w-full flex items-center justify-between px-3 py-2 text-left text-sm text-neutral-900 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 active:bg-neutral-50"
-                                >
-                                    <span>{ci.name}</span>
-                                    <span className="text-xs text-neutral-400">{ci.is_pantry_staple ? 'basisvare' : ''}</span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
+        <div className="">
+            <div className='flex items-center gap-2 min-h-11'>
+                <span className="flex-1 text-sm text-neutral-900 dark:text-neutral-100 truncate">{item.item_name}</span>
+                <button
+                    type="button"
+                    onClick={() => onChange({ quantity: Math.max(1, item.quantity - stepSize(item.quantity)) })}
+                    className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-sm font-medium active:opacity-70"
+                >
+                    −
+                </button>
                 <input
                     type="number"
                     min={1}
                     value={item.quantity}
                     onChange={e => onChange({ quantity: Math.max(1, parseInt(e.target.value) || 1) })}
-                    className="h-9 w-14 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-transparent px-2 text-sm text-center text-neutral-900 dark:text-neutral-100 outline-none focus:border-neutral-400"
+                    className="h-8 w-12 rounded border border-neutral-200 dark:border-neutral-700 bg-transparent px-1.5 text-sm text-center text-neutral-900 dark:text-neutral-100 outline-none focus:border-neutral-400"
                 />
-                <button onClick={onRemove} className="text-neutral-300 dark:text-neutral-600 active:text-red-500 transition-colors px-1">
-                    <Trash2 size={14} />
+                <button
+                    type="button"
+                    onClick={() => onChange({ quantity: item.quantity + stepSize(item.quantity) })}
+                    className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-sm font-medium active:opacity-70"
+                >
+                    +
                 </button>
+                <select
+                    value={item.unit}
+                    onChange={e => onChange({ unit: e.target.value })}
+                    className="h-8 rounded border border-neutral-200 dark:border-neutral-700 bg-transparent px-1.5 text-sm text-neutral-900 dark:text-neutral-100 outline-none focus:border-neutral-400"
+                >
+                    {UNITS_EXTENDED.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
             </div>
-            <div className="flex items-center justify-between gap-3">
-                <UnitPicker extended value={item.unit} onChange={u => onChange({ unit: u })} />
+            <div className='flex items-center justify-end gap-2 min-h-11 border-b border-neutral-100 dark:border-neutral-800'>
+
+
                 <button
                     type="button"
                     onClick={() => onChange({ is_pantry_staple: !item.is_pantry_staple })}
-                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors shrink-0 ${item.is_pantry_staple
-                        ? 'bg-neutral-900 dark:bg-neutral-100 text-neutral-50 dark:text-neutral-900 border-transparent'
-                        : 'border-neutral-200 dark:border-neutral-700 text-neutral-400'
+                    className={`h-8 px-4 rounded-full flex items-center justify-center text-xs font-bold transition-colors shrink-0 ${item.is_pantry_staple
+                        ? 'bg-neutral-900 dark:bg-neutral-400 text-neutral-50 dark:text-neutral-900'
+                        : 'bg-neutral-200 dark:bg-neutral-900 text-neutral-400 dark:text-neutral-400'
                         }`}
                 >
                     Basisvare
                 </button>
+                {confirming ? (
+                    <button
+                        type="button"
+                        onClick={onRemove}
+                        onBlur={() => setConfirming(false)}
+                        autoFocus
+                        className="h-8 px-4 rounded-full bg-red-500 dark:bg-red-800 text-white text-xs font-medium active:opacity-70 shrink-0"
+                    >
+                        Sikker?
+                    </button>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => setConfirming(true)}
+                        className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-950 flex items-center justify-center text-red-300 active:opacity-70 transition-colors shrink-0"
+                    >
+                        <Trash2 size={13} />
+                    </button>
+                )}
             </div>
         </div>
+    )
+}
+
+// ── Ingredient picker sheet (same UX as AddItemSheet) ──────────
+
+function IngredientPickerSheet({ open, onClose, catalog, onAdd }: {
+    open: boolean
+    onClose: () => void
+    catalog: ListItem[]
+    onAdd: (name: string, quantity: number, unit: string) => void
+}) {
+    const [search, setSearch] = useState('')
+    const [quantity, setQuantity] = useState(1)
+    const [unit, setUnit] = useState('stk')
+    const inputRef = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        if (open) {
+            setTimeout(() => inputRef.current?.focus(), 300)
+        } else {
+            setSearch('')
+            setQuantity(1)
+            setUnit('stk')
+        }
+    }, [open])
+
+    const normalizedSearch = normalizeItemName(search)
+
+    const suggestions = catalog
+        .filter(item => {
+            if (!normalizedSearch) return true
+            return item.name_normalized.includes(normalizedSearch)
+        })
+        .map(item => ({
+            ...item,
+            score: scoreItem({
+                daysSincePurchase: daysSince(item.last_purchased_at),
+                avgFrequencyDays: item.avg_frequency_days,
+                isStarred: item.is_starred,
+                associationWeight: 0,
+                purchaseCount: item.purchase_count,
+            }),
+        }))
+        .sort((a, b) => b.score - a.score)
+
+    const exactMatch = catalog.find(i => i.name_normalized === normalizedSearch)
+
+    function pick(name: string, itemUnit?: string) {
+        if (!name.trim()) return
+        onAdd(name.trim(), quantity, itemUnit ?? unit)
+        setSearch('')
+        setQuantity(1)
+        setUnit('stk')
+        setTimeout(() => inputRef.current?.focus(), 50)
+    }
+
+    function badgeFor(item: ListItem & { score: number }) {
+        if (item.is_starred) return { label: '⭐', className: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300' }
+        const days = daysSince(item.last_purchased_at)
+        const label = timeSinceLabel(item.last_purchased_at)
+        if (days !== null && item.avg_frequency_days && days >= item.avg_frequency_days * 0.9) {
+            return { label: '🔴 Høy sannsynlighet', className: 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' }
+        }
+        if (label) return { label: `🕐 ${label}`, className: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400' }
+        return null
+    }
+
+    return (
+        <Sheet open={open} onOpenChange={v => !v && onClose()}>
+            <SheetContent
+                side="bottom"
+                className="h-[93vh]! px-0 flex flex-col border-t border-neutral-100 dark:border-neutral-800"
+            >
+                {/* Search input */}
+                <div className="px-4 pt-2 pb-3 border-b border-neutral-100 dark:border-neutral-800 space-y-3">
+                    <div className="relative">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                        <Input
+                            ref={inputRef}
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder="Søk eller skriv ny ingrediens..."
+                            className="pl-9 h-11"
+                            onKeyDown={e => {
+                                if (e.key === 'Enter' && search.trim()) {
+                                    exactMatch ? pick(exactMatch.name, exactMatch.unit) : pick(search)
+                                }
+                            }}
+                        />
+                    </div>
+
+                    {/* Quantity + unit */}
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 shrink-0">
+                            <button
+                                onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                                className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
+                            >
+                                <Minus size={12} />
+                            </button>
+                            <span className="w-5 text-center text-sm font-medium text-neutral-900 dark:text-neutral-100">{quantity}</span>
+                            <button
+                                onClick={() => setQuantity(q => q + 1)}
+                                className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
+                            >
+                                <Plus size={12} />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-x-auto">
+                            <div className="flex gap-1.5">
+                                {UNITS_EXTENDED.map(u => (
+                                    <button
+                                        key={u}
+                                        type="button"
+                                        onClick={() => setUnit(u)}
+                                        className={`px-3 h-8 rounded-full text-xs font-medium transition-colors shrink-0 ${unit === u
+                                            ? 'bg-neutral-900 text-neutral-50 dark:bg-neutral-100 dark:text-neutral-900'
+                                            : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+                                            }`}
+                                    >
+                                        {u}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Suggestions */}
+                <div className="flex-1 overflow-y-auto">
+                    {suggestions.map(item => {
+                        const badge = badgeFor(item)
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => pick(item.name, item.unit)}
+                                className="w-full flex items-center gap-3 px-4 min-h-[52px] border-b border-neutral-100 dark:border-neutral-900 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
+                            >
+                                <span className="flex-1 text-sm text-neutral-900 dark:text-neutral-100">{item.name}</span>
+                                {item.is_pantry_staple && (
+                                    <span className="text-xs text-neutral-400 shrink-0">B</span>
+                                )}
+                                {badge && (
+                                    <Badge variant="secondary" className={`text-xs shrink-0 ${badge.className}`}>
+                                        {badge.label}
+                                    </Badge>
+                                )}
+                            </button>
+                        )
+                    })}
+
+                    {search.trim() && !exactMatch && (
+                        <button
+                            onClick={() => pick(search)}
+                            className="w-full flex items-center gap-3 px-4 min-h-[52px] text-left active:bg-neutral-50 dark:active:bg-neutral-900"
+                        >
+                            <div className="w-7 h-7 rounded-full bg-neutral-900 dark:bg-neutral-100 flex items-center justify-center text-white dark:text-neutral-900 flex-shrink-0">
+                                <Plus size={16} />
+                            </div>
+                            <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                                Legg til <strong className="text-neutral-900 dark:text-neutral-100">"{search.trim()}"</strong>
+                            </span>
+                        </button>
+                    )}
+                </div>
+            </SheetContent>
+        </Sheet>
     )
 }

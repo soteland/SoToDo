@@ -1,17 +1,21 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Minus, Trash2, X } from 'lucide-react'
+import { Plus, Minus, Trash2, Search, X } from 'lucide-react'
 import { Sheet, SheetContent } from '../components/ui/sheet'
 import { Input } from '../components/ui/input'
+import { Badge } from '../components/ui/badge'
 import { Skeleton } from '../components/ui/skeleton'
 import { UnitPicker, formatQty } from '../components/UnitPicker'
+import { normalizeItemName, timeSinceLabel, scoreItem, daysSince } from '../lib/utils'
 import {
     fetchHjemmelager,
     addHjemmelagerItem,
     updateHjemmelagerItem,
     deleteHjemmelagerItem,
+    fetchItemCatalog,
+    fetchPrimaryListItems,
 } from '../lib/queries'
-import type { HjemmelagerItem } from '../types'
+import type { HjemmelagerItem, ListItem } from '../types'
 
 function expiryLabel(expiresAt: string | null): { text: string; urgent: boolean; expired: boolean } | null {
     if (!expiresAt) return null
@@ -30,104 +34,194 @@ interface AddSheetProps {
 
 function AddItemSheet({ open, onClose }: AddSheetProps) {
     const queryClient = useQueryClient()
-    const [itemName, setItemName] = useState('')
+    const [search, setSearch] = useState('')
     const [quantity, setQuantity] = useState(1)
     const [unit, setUnit] = useState('stk')
     const [expiresAt, setExpiresAt] = useState('')
+    const inputRef = useRef<HTMLInputElement>(null)
+
+    const { data: catalog } = useQuery({
+        queryKey: ['item-catalog'],
+        queryFn: fetchItemCatalog,
+    })
+
+    useEffect(() => {
+        if (open) {
+            setTimeout(() => inputRef.current?.focus(), 300)
+        } else {
+            setSearch('')
+            setQuantity(1)
+            setUnit('stk')
+            setExpiresAt('')
+        }
+    }, [open])
 
     const addMutation = useMutation({
-        mutationFn: () =>
+        mutationFn: (name: string) =>
             addHjemmelagerItem({
-                item_name: itemName.trim(),
+                item_name: name.trim(),
                 quantity,
                 unit,
                 expires_at: expiresAt || null,
             }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hjemmelager'] })
-            setItemName('')
+            setSearch('')
             setQuantity(1)
             setUnit('stk')
             setExpiresAt('')
-            onClose()
+            inputRef.current?.focus()
         },
     })
 
-    function submit() {
-        if (!itemName.trim() || addMutation.isPending) return
-        addMutation.mutate()
+    const normalizedSearch = normalizeItemName(search)
+
+    const suggestions = (catalog ?? [])
+        .filter(item => {
+            if (!normalizedSearch) return true
+            return item.name_normalized.includes(normalizedSearch)
+        })
+        .map(item => ({
+            ...item,
+            score: scoreItem({
+                daysSincePurchase: daysSince(item.last_purchased_at),
+                avgFrequencyDays: item.avg_frequency_days,
+                isStarred: item.is_starred,
+                associationWeight: 0,
+                purchaseCount: item.purchase_count,
+            }),
+        }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 30)
+
+    const exactMatch = (catalog ?? []).find(i => i.name_normalized === normalizedSearch)
+
+    function addItem(name: string, itemUnit?: string) {
+        if (!name.trim() || addMutation.isPending) return
+        if (itemUnit) setUnit(itemUnit)
+        addMutation.mutate(name)
+    }
+
+    function badgeFor(item: ListItem & { score: number }) {
+        if (item.is_starred) return { label: '⭐', className: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300' }
+        const days = daysSince(item.last_purchased_at)
+        const label = timeSinceLabel(item.last_purchased_at)
+        if (days !== null && item.avg_frequency_days && days >= item.avg_frequency_days * 0.9) {
+            return { label: '🔴 Høy sannsynlighet', className: 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' }
+        }
+        if (label) return { label: `🕐 ${label}`, className: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400' }
+        return null
     }
 
     return (
         <Sheet open={open} onOpenChange={v => !v && onClose()}>
             <SheetContent
                 side="bottom"
-                className="rounded-t-2xl px-4 pb-[env(safe-area-inset-bottom)] flex flex-col gap-4"
+                className="h-[93vh]! px-0 pb-[env(safe-area-inset-bottom)] flex flex-col border-t border-neutral-100 dark:border-neutral-800"
             >
-                <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 pt-1">
-                    Legg til vare
-                </p>
+                <div className="px-4 pt-2 pb-3 border-b border-neutral-100 dark:border-neutral-800 space-y-3">
+                    <div className="relative">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                        <Input
+                            ref={inputRef}
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder="Søk eller skriv ny vare..."
+                            className="pl-9 h-11"
+                            onKeyDown={e => {
+                                if (e.key === 'Enter' && search.trim()) {
+                                    if (exactMatch) {
+                                        addItem(exactMatch.name, exactMatch.unit)
+                                    } else {
+                                        addItem(search)
+                                    }
+                                }
+                            }}
+                        />
+                    </div>
 
-                <Input
-                    value={itemName}
-                    onChange={e => setItemName(e.target.value)}
-                    placeholder="Varenavn..."
-                    className="h-12 text-base"
-                    autoFocus
-                    onKeyDown={e => e.key === 'Enter' && submit()}
-                />
-
-                {/* Quantity */}
-                <div className="flex items-center gap-4">
-                    <span className="text-sm text-neutral-500 dark:text-neutral-400 w-16">Antall</span>
+                    {/* Quantity + unit */}
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                            className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
-                        >
-                            <Minus size={14} />
-                        </button>
-                        <span className="w-6 text-center text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                            {quantity}
-                        </span>
-                        <button
-                            onClick={() => setQuantity(q => q + 1)}
-                            className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
-                        >
-                            <Plus size={14} />
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                            <button
+                                onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                                className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
+                            >
+                                <Minus size={12} />
+                            </button>
+                            <span className="w-5 text-center text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                                {quantity}
+                            </span>
+                            <button
+                                onClick={() => setQuantity(q => q + 1)}
+                                className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
+                            >
+                                <Plus size={12} />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-x-auto">
+                            <UnitPicker value={unit} onChange={setUnit} />
+                        </div>
+                    </div>
+
+                    {/* Expiry date */}
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs text-neutral-400 shrink-0">Utløper</span>
+                        <input
+                            type="date"
+                            value={expiresAt}
+                            onChange={e => setExpiresAt(e.target.value)}
+                            className="flex-1 h-9 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-transparent px-3 text-sm text-neutral-900 dark:text-neutral-100"
+                        />
+                        {expiresAt && (
+                            <button onClick={() => setExpiresAt('')} className="text-neutral-400">
+                                <X size={16} />
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                {/* Unit */}
-                <div>
-                    <p className="text-xs text-neutral-400 mb-2">Enhet</p>
-                    <UnitPicker value={unit} onChange={setUnit} />
-                </div>
+                {/* Suggestions list */}
+                <div className="flex-1 overflow-y-auto">
+                    {suggestions.map(item => {
+                        const badge = badgeFor(item)
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => addItem(item.name, item.unit)}
+                                className="w-full flex items-center gap-3 px-4 min-h-[52px] border-b border-neutral-100 dark:border-neutral-900 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
+                            >
+                                <span className="flex-1 text-sm text-neutral-900 dark:text-neutral-100">
+                                    {item.name}
+                                </span>
+                                {formatQty(item.quantity, item.unit) && (
+                                    <span className="text-xs text-neutral-400 shrink-0">
+                                        {formatQty(item.quantity, item.unit)}
+                                    </span>
+                                )}
+                                {badge && (
+                                    <Badge variant="secondary" className={`text-xs shrink-0 ${badge.className}`}>
+                                        {badge.label}
+                                    </Badge>
+                                )}
+                            </button>
+                        )
+                    })}
 
-                {/* Expiry */}
-                <div className="flex items-center gap-4">
-                    <span className="text-sm text-neutral-500 dark:text-neutral-400 w-16">Utløper</span>
-                    <input
-                        type="date"
-                        value={expiresAt}
-                        onChange={e => setExpiresAt(e.target.value)}
-                        className="flex-1 h-10 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-transparent px-3 text-sm text-neutral-900 dark:text-neutral-100"
-                    />
-                    {expiresAt && (
-                        <button onClick={() => setExpiresAt('')} className="text-neutral-400">
-                            <X size={16} />
+                    {search.trim() && !exactMatch && (
+                        <button
+                            onClick={() => addItem(search)}
+                            className="w-full flex items-center gap-3 px-4 min-h-[52px] text-left active:bg-neutral-50 dark:active:bg-neutral-900"
+                        >
+                            <div className="w-7 h-7 rounded-full bg-neutral-900 dark:bg-neutral-100 flex items-center justify-center text-white dark:text-neutral-900 flex-shrink-0">
+                                <Plus size={16} />
+                            </div>
+                            <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                                Legg til <strong className="text-neutral-900 dark:text-neutral-100">"{search.trim()}"</strong>
+                            </span>
                         </button>
                     )}
                 </div>
-
-                <button
-                    onClick={submit}
-                    disabled={!itemName.trim() || addMutation.isPending}
-                    className="h-12 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-neutral-50 dark:text-neutral-900 font-medium disabled:opacity-40 active:opacity-80 transition-opacity mb-2"
-                >
-                    {addMutation.isPending ? 'Legger til...' : 'Legg til'}
-                </button>
             </SheetContent>
         </Sheet>
     )
@@ -160,7 +254,6 @@ function ItemRow({ item }: { item: HjemmelagerItem }) {
 
     return (
         <div className={`flex items-center gap-3 px-4 min-h-[56px] border-b border-neutral-100 dark:border-neutral-800 ${expiry?.expired ? 'opacity-50' : ''}`}>
-            {/* Name + expiry */}
             <div className="flex-1 min-w-0">
                 <p className="text-sm text-neutral-900 dark:text-neutral-100 truncate">{item.item_name}</p>
                 {expiry && (
@@ -175,7 +268,6 @@ function ItemRow({ item }: { item: HjemmelagerItem }) {
                 )}
             </div>
 
-            {/* Quantity + unit controls */}
             <div className="flex items-center gap-2 shrink-0">
                 <button
                     onClick={() => {
@@ -200,7 +292,6 @@ function ItemRow({ item }: { item: HjemmelagerItem }) {
                 </button>
             </div>
 
-            {/* Delete */}
             <button
                 onClick={() => deleteMutation.mutate()}
                 className="w-9 h-9 flex items-center justify-center text-neutral-300 dark:text-neutral-600 active:text-red-500 dark:active:text-red-400 transition-colors"
@@ -208,6 +299,61 @@ function ItemRow({ item }: { item: HjemmelagerItem }) {
                 <Trash2 size={16} />
             </button>
         </div>
+    )
+}
+
+function RecentlyPurchasedSection({ hjemmelagerItems }: { hjemmelagerItems: HjemmelagerItem[] }) {
+    const queryClient = useQueryClient()
+
+    const { data: recentItems } = useQuery({
+        queryKey: ['primary-list-items'],
+        queryFn: fetchPrimaryListItems,
+    })
+
+    const addMutation = useMutation({
+        mutationFn: (item: ListItem) =>
+            addHjemmelagerItem({
+                item_name: item.name,
+                quantity: item.quantity ?? 1,
+                unit: item.unit ?? 'stk',
+            }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['hjemmelager'] })
+        },
+    })
+
+    const hjemmelagerNormalized = new Set(hjemmelagerItems.map(i => i.item_name_normalized))
+
+    const suggestions = (recentItems ?? []).filter(
+        item => !hjemmelagerNormalized.has(item.name_normalized)
+    )
+
+    if (!suggestions.length) return null
+
+    return (
+        <>
+            <p className="text-xs text-neutral-400 uppercase tracking-wide px-4 pt-4 pb-2">
+                Nylig kjøpt — legg til lager?
+            </p>
+            {suggestions.map(item => (
+                <div
+                    key={item.id}
+                    className="flex items-center gap-3 px-4 min-h-[52px] border-b border-neutral-100 dark:border-neutral-800"
+                >
+                    <span className="flex-1 text-sm text-neutral-900 dark:text-neutral-100">{item.name}</span>
+                    {formatQty(item.quantity, item.unit) && (
+                        <span className="text-xs text-neutral-400">{formatQty(item.quantity, item.unit)}</span>
+                    )}
+                    <button
+                        onClick={() => addMutation.mutate(item)}
+                        disabled={addMutation.isPending}
+                        className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70 disabled:opacity-40"
+                    >
+                        <Plus size={14} />
+                    </button>
+                </div>
+            ))}
+        </>
     )
 }
 
@@ -245,8 +391,8 @@ export function HjemmelagerPage() {
                 )}
 
                 {!isLoading && items?.length === 0 && (
-                    <p className="text-center text-neutral-400 mt-12 px-6">
-                        Listen med innhold i kjøleskapet og fryseboksen er tom. <br></br>Trykk + for å legge til noe.
+                    <p className="text-center text-sm text-neutral-400 mt-12 px-6">
+                        Listen med innhold i kjøleskapet og fryseboksen er tom. <br />Trykk + for å legge til noe.
                     </p>
                 )}
 
@@ -278,13 +424,15 @@ export function HjemmelagerPage() {
                         {expired.map(item => <ItemRow key={item.id} item={item} />)}
                     </>
                 )}
+
+                {!isLoading && <RecentlyPurchasedSection hjemmelagerItems={items ?? []} />}
             </div>
 
             {/* FAB */}
             <div className="fixed bottom-22 right-4 pb-[env(safe-area-inset-bottom)]">
                 <button
                     onClick={() => setAddOpen(true)}
-                    className=" w-14 h-14 rounded-full bg-neutral-900 dark:bg-neutral-100 text-neutral-50 dark:text-neutral-900 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+                    className="w-14 h-14 rounded-full bg-neutral-900 dark:bg-neutral-100 text-neutral-50 dark:text-neutral-900 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
                 >
                     <Plus size={28} strokeWidth={2} />
                 </button>

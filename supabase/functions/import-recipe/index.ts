@@ -13,6 +13,11 @@ Deno.serve(async (req) => {
 
   // Fetch the page
   const pageRes = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+  if (!pageRes.ok) {
+    return new Response(JSON.stringify({ error: `Could not fetch page: ${pageRes.status}` }), {
+      status: 422, headers: corsHeaders,
+    })
+  }
   const html = await pageRes.text()
 
   // Strip tags, collapse whitespace, cap length
