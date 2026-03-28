@@ -177,6 +177,11 @@ export async function fetchSuggestions(
 
 // ── Recipes ───────────────────────────────────────────────────
 
+export async function seedMyRecipes() {
+  const { error } = await supabase.rpc('seed_my_recipes')
+  if (error) throw error
+}
+
 export async function fetchRecipes(): Promise<Recipe[]> {
   const { data, error } = await supabase
     .from('recipes')

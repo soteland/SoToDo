@@ -25,11 +25,13 @@ drop table if exists public.profiles                cascade;
 drop table if exists public.invite_codes            cascade;
 
 drop function if exists public.normalize_item_name()              cascade;
+drop function if exists public.normalize_item_name_keyed()        cascade;
 drop function if exists public.member_list_ids()                  cascade;
 drop function if exists public.owned_list_ids()                   cascade;
 drop function if exists public.accessible_list_ids()              cascade;
-drop function if exists public.handle_new_user()                  cascade;
-drop function if exists public.handle_new_user_setup()            cascade;
+-- handle_new_user and handle_new_user_setup are NOT dropped here because
+-- cascade would attempt to drop the trigger on auth.users (which we don't own).
+-- They are updated via create or replace function below.
 drop function if exists public.seed_default_list_types(uuid)      cascade;
 drop function if exists public.seed_default_recipes(uuid)         cascade;
 drop function if exists public.check_off_item(uuid)               cascade;
@@ -240,6 +242,16 @@ begin
 end;
 $$;
 
+create or replace function public.normalize_item_name_keyed()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.item_name_normalized := lower(trim(new.item_name));
+  return new;
+end;
+$$;
+
 drop trigger if exists normalize_list_item_name on public.list_items;
 create trigger normalize_list_item_name
   before insert or update of name on public.list_items
@@ -248,12 +260,12 @@ create trigger normalize_list_item_name
 drop trigger if exists normalize_recipe_item_name on public.recipe_items;
 create trigger normalize_recipe_item_name
   before insert or update of item_name on public.recipe_items
-  for each row execute procedure public.normalize_item_name();
+  for each row execute procedure public.normalize_item_name_keyed();
 
 drop trigger if exists normalize_hjemmelager_name on public.hjemmelager;
 create trigger normalize_hjemmelager_name
   before insert or update of item_name on public.hjemmelager
-  for each row execute procedure public.normalize_item_name();
+  for each row execute procedure public.normalize_item_name_keyed();
 
 -- ============================================================
 -- HELPER FUNCTIONS (security definer = runs as postgres
@@ -464,6 +476,7 @@ returns void
 language plpgsql
 security definer
 set search_path = ''
+set row_security = off
 as $$
 begin
   insert into public.list_types (user_id, name, icon_name, color, sort_order, is_default)
@@ -485,6 +498,7 @@ returns void
 language plpgsql
 security definer
 set search_path = ''
+set row_security = off
 as $$
 declare
   v_id uuid;
@@ -673,6 +687,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = ''
+set row_security = off
 as $$
 begin
   insert into public.profiles (id, display_name)
@@ -681,8 +696,7 @@ begin
 end;
 $$;
 
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
+create or replace trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
@@ -692,12 +706,12 @@ returns trigger
 language plpgsql
 security definer
 set search_path = ''
+set row_security = off
 as $$
 declare
   v_list_type_id uuid;
 begin
   perform public.seed_default_list_types(new.id);
-  perform public.seed_default_recipes(new.id);
 
   select id into v_list_type_id
   from   public.list_types
@@ -859,6 +873,19 @@ create policy "ai_enrichment_cache: authenticated write" on public.ai_enrichment
 -- ai_usage_log
 create policy "ai_usage_log: own" on public.ai_usage_log
   for all using (user_id = auth.uid());
+
+-- Callable from the app to seed default recipes for the current user.
+create or replace function public.seed_my_recipes()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+begin
+  perform public.seed_default_recipes(auth.uid());
+end;
+$$;
 
 -- ============================================================
 -- LOCK DOWN HELPER FUNCTIONS TO AUTHENTICATED ROLE ONLY

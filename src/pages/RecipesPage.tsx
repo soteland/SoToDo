@@ -1,14 +1,19 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
-import { fetchRecipes } from '../lib/queries'
+import { fetchRecipes, seedMyRecipes } from '../lib/queries'
 import { Skeleton } from '../components/ui/skeleton'
 
 export function RecipesPage() {
     const navigate = useNavigate()
+    const queryClient = useQueryClient()
     const { data: recipes, isLoading } = useQuery({
         queryKey: ['recipes'],
         queryFn: fetchRecipes,
+    })
+    const seedMutation = useMutation({
+        mutationFn: seedMyRecipes,
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recipes'] }),
     })
 
     return (
@@ -49,9 +54,18 @@ export function RecipesPage() {
                 ))}
 
                 {!isLoading && recipes?.length === 0 && (
-                    <p className="text-center text-neutral-400 text-sm mt-12 px-6">
-                        Ingen oppskrifter ennå. Trykk + for å legge til.
-                    </p>
+                    <div className="flex flex-col items-center gap-4 mt-12 px-6">
+                        <p className="text-center text-neutral-400 text-sm">
+                            Ingen oppskrifter ennå. Trykk + for å legge til.
+                        </p>
+                        <button
+                            onClick={() => seedMutation.mutate()}
+                            disabled={seedMutation.isPending}
+                            className="text-sm text-neutral-500 underline underline-offset-2 disabled:opacity-40"
+                        >
+                            {seedMutation.isPending ? 'Legger til...' : 'Legg til standardoppskrifter'}
+                        </button>
+                    </div>
                 )}
             </div>
 
