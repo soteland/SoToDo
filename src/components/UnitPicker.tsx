@@ -1,6 +1,6 @@
 import { cn } from '../lib/utils'
 
-export const UNITS = ['stk', 'g', 'kg', 'ml', 'dl', 'L', 'ss', 'ts']
+export const UNITS = ['stk', 'g', 'kg', 'dl', 'L']
 
 interface UnitPickerProps {
   value: string
