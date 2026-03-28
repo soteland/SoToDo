@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Check } from 'lucide-react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { Sheet, SheetContent } from './ui/sheet'
 import { Input } from './ui/input'
 import { SvgIcon } from './SvgIcon'
-import { updateList, updateListType } from '../lib/queries'
+import { updateList, updateListType, fetchLists, setPrimaryList } from '../lib/queries'
 import { PALETTE, ALL_ICONS } from '../lib/listDefaults'
 import { useListColor } from '../hooks/useListColor'
 import type { List } from '../types'
@@ -20,7 +20,11 @@ export function ListEditSheet({ list, open, onClose }: ListEditSheetProps) {
   const [name, setName] = useState(list.name)
   const [color, setColor] = useState(list.list_type?.color ?? PALETTE[0])
   const [iconName, setIconName] = useState(list.list_type?.icon_name ?? 'list')
+  const [isPrimary, setIsPrimary] = useState(list.is_primary)
   const displayColor = useListColor(color)
+
+  const { data: allLists } = useQuery({ queryKey: ['lists'], queryFn: fetchLists })
+  const currentPrimary = allLists?.find(l => l.is_primary && l.id !== list.id) ?? null
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -28,6 +32,13 @@ export function ListEditSheet({ list, open, onClose }: ListEditSheetProps) {
         updateList(list.id, { name: name.trim() }),
         updateListType(list.list_type_id, { color, icon_name: iconName }),
       ])
+      if (isPrimary && !list.is_primary) {
+        // Make this list primary, unset the current primary
+        await setPrimaryList(list.id, currentPrimary?.id ?? null)
+      } else if (!isPrimary && list.is_primary) {
+        // Un-mark this list as primary
+        await setPrimaryList(null, list.id)
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['list', list.id] })
@@ -54,6 +65,19 @@ export function ListEditSheet({ list, open, onClose }: ListEditSheetProps) {
           placeholder="Listenavn..."
           className="h-12 text-base"
         />
+
+        {/* Primary list toggle */}
+        <button
+          onClick={() => setIsPrimary(v => !v)}
+          className="flex items-center gap-3 py-1"
+        >
+          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${isPrimary ? 'border-transparent' : 'border-neutral-300 dark:border-neutral-600'}`}
+            style={{ backgroundColor: isPrimary ? displayColor : undefined }}
+          >
+            {isPrimary && <Check size={12} className="text-white" strokeWidth={3} />}
+          </div>
+          <span className="text-sm text-neutral-700 dark:text-neutral-300">Hovedliste for oppskrifter</span>
+        </button>
 
         {/* Color */}
         <div>

@@ -86,6 +86,7 @@ create table public.lists (
   list_type_id       uuid        not null references public.list_types(id) on delete restrict,
   name               text        not null,
   is_visible_on_home bool        not null default true,
+  is_primary         bool        not null default false,
   history_shared_at  timestamptz,
   created_at         timestamptz not null default now()
 );
@@ -130,7 +131,8 @@ create table public.list_items (
   last_purchased_at   timestamptz,
   avg_frequency_days  float,
   sort_order          int         not null default 0,
-  unit                text        not null default 'stk'
+  unit                text        not null default 'stk',
+  is_pantry_staple    bool        not null default false
 );
 
 create index list_items_list_id_idx       on public.list_items(list_id);
@@ -166,17 +168,19 @@ create table public.recipes (
   owner_id     uuid        not null references auth.users(id) on delete cascade,
   name         text        not null,
   description  text,
+  instructions text[]      not null default '{}',
   created_at   timestamptz not null default now()
 );
 
 create table public.recipe_items (
-  id                  uuid  primary key default gen_random_uuid(),
-  recipe_id           uuid  not null references public.recipes(id) on delete cascade,
-  item_name           text  not null,
-  item_name_normalized text not null,
-  quantity            int   not null default 1,
-  unit                text  not null default 'stk',
-  sort_order          int   not null default 0
+  id                   uuid  primary key default gen_random_uuid(),
+  recipe_id            uuid  not null references public.recipes(id) on delete cascade,
+  item_name            text  not null,
+  item_name_normalized text  not null,
+  quantity             int   not null default 1,
+  unit                 text  not null default 'stk',
+  sort_order           int   not null default 0,
+  is_pantry_staple     bool  not null default false
 );
 
 create table public.recipe_share_tokens (
@@ -486,132 +490,180 @@ declare
   v_id uuid;
 begin
   -- 1. Tacokveld
-  insert into public.recipes (owner_id, name, description)
-  values (p_user_id, 'Tacokveld', 'Klassisk fredagstaco for hele familien')
+  insert into public.recipes (owner_id, name, description, instructions)
+  values (p_user_id, 'Tacokveld', 'Klassisk fredagstaco for hele familien', array[
+    'Brun kjøttdeigen i en stekepanne på middels varme.',
+    'Tilsett tacokrydder og litt vann, la det koke inn i 5 minutter.',
+    'Varm tortillaene i stekeovnen eller på en tørr panne.',
+    'Sett frem alle tilbehørene i skåler og la alle lage sin egen taco.'
+  ])
   returning id into v_id;
-  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order) values
-    (v_id, 'Kjøttdeig',   'kjøttdeig',   400, 'g',   1),
-    (v_id, 'Tacokrydder', 'tacokrydder', 1,   'stk', 2),
-    (v_id, 'Tortillas',   'tortillas',   8,   'stk', 3),
-    (v_id, 'Salsa',       'salsa',       1,   'stk', 4),
-    (v_id, 'Rømme',       'rømme',       200, 'ml',  5),
-    (v_id, 'Gulost',      'gulost',      150, 'g',   6),
-    (v_id, 'Salat',       'salat',       1,   'stk', 7),
-    (v_id, 'Tomat',       'tomat',       2,   'stk', 8),
-    (v_id, 'Paprika',     'paprika',     1,   'stk', 9),
-    (v_id, 'Løk',         'løk',         1,   'stk', 10);
+  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order, is_pantry_staple) values
+    (v_id, 'Kjøttdeig',   'kjøttdeig',   400, 'g',   1, false),
+    (v_id, 'Tacokrydder', 'tacokrydder', 1,   'stk', 2, true),
+    (v_id, 'Tortillas',   'tortillas',   8,   'stk', 3, false),
+    (v_id, 'Salsa',       'salsa',       1,   'stk', 4, false),
+    (v_id, 'Rømme',       'rømme',       2,   'dl',  5, false),
+    (v_id, 'Gulost',      'gulost',      150, 'g',   6, false),
+    (v_id, 'Salat',       'salat',       1,   'stk', 7, false),
+    (v_id, 'Tomat',       'tomat',       2,   'stk', 8, false),
+    (v_id, 'Paprika',     'paprika',     1,   'stk', 9, false),
+    (v_id, 'Løk',         'løk',         1,   'stk', 10, false);
 
   -- 2. Spagetti Bolognese
-  insert into public.recipes (owner_id, name, description)
-  values (p_user_id, 'Spagetti Bolognese', 'Italiensk klassiker med kjøttsaus')
+  insert into public.recipes (owner_id, name, description, instructions)
+  values (p_user_id, 'Spagetti Bolognese', 'Italiensk klassiker med kjøttsaus', array[
+    'Hakk løk og hvitløk, stek i olivenolje til myk og blank.',
+    'Tilsett kjøttdeig og brun godt. Krydre med salt og pepper.',
+    'Ha i hermetiske tomater, tomatpuré og buljongterning. La sausen småkoke i 20 minutter.',
+    'Kok spagetti etter anvisning på pakken. Server med saus og revet parmesan.'
+  ])
   returning id into v_id;
-  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order) values
-    (v_id, 'Spagetti',              'spagetti',              400, 'g',   1),
-    (v_id, 'Kjøttdeig',             'kjøttdeig',             400, 'g',   2),
-    (v_id, 'Hermetiske tomater',    'hermetiske tomater',    2,   'stk', 3),
-    (v_id, 'Løk',                   'løk',                   1,   'stk', 4),
-    (v_id, 'Hvitløk',               'hvitløk',               3,   'stk', 5),
-    (v_id, 'Tomatpuré',             'tomatpuré',             1,   'stk', 6),
-    (v_id, 'Buljongterning',        'buljongterning',        1,   'stk', 7),
-    (v_id, 'Olivenolje',            'olivenolje',            2,   'ss',  8);
+  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order, is_pantry_staple) values
+    (v_id, 'Spagetti',           'spagetti',           400, 'g',   1, false),
+    (v_id, 'Kjøttdeig',          'kjøttdeig',          400, 'g',   2, false),
+    (v_id, 'Hermetiske tomater', 'hermetiske tomater', 2,   'stk', 3, false),
+    (v_id, 'Løk',                'løk',                1,   'stk', 4, false),
+    (v_id, 'Hvitløk',            'hvitløk',            3,   'stk', 5, false),
+    (v_id, 'Tomatpuré',          'tomatpuré',          1,   'stk', 6, true),
+    (v_id, 'Buljongterning',     'buljongterning',     1,   'stk', 7, true),
+    (v_id, 'Olivenolje',         'olivenolje',         2,   'dl',  8, true);
 
   -- 3. Hjemmelaget pizza
-  insert into public.recipes (owner_id, name, description)
-  values (p_user_id, 'Hjemmelaget pizza', 'Sprø bunn med valgfritt fyll')
+  insert into public.recipes (owner_id, name, description, instructions)
+  values (p_user_id, 'Hjemmelaget pizza', 'Sprø bunn med valgfritt fyll', array[
+    'Bland hvetemel, gjær, salt og vann. Elt deigen i 10 minutter og la heve i 1 time.',
+    'Kjevle ut deigen tynt på melet underlag.',
+    'Smør på hermetiske tomater og fordel fyll etter ønske.',
+    'Stek på 250°C i 10–12 minutter til bunnen er sprø og osten er gyllen.'
+  ])
   returning id into v_id;
-  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order) values
-    (v_id, 'Hvetemel',           'hvetemel',           500, 'g',   1),
-    (v_id, 'Gjær',               'gjær',               1,   'stk', 2),
-    (v_id, 'Hermetiske tomater', 'hermetiske tomater', 1,   'stk', 3),
-    (v_id, 'Gulost',             'gulost',             200, 'g',   4),
-    (v_id, 'Kjøttdeig',         'kjøttdeig',          300, 'g',   5),
-    (v_id, 'Paprika',            'paprika',            1,   'stk', 6),
-    (v_id, 'Løk',                'løk',                1,   'stk', 7),
-    (v_id, 'Bacon',              'bacon',              150, 'g',   8);
+  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order, is_pantry_staple) values
+    (v_id, 'Hvetemel',           'hvetemel',           500, 'g',   1, true),
+    (v_id, 'Gjær',               'gjær',               1,   'stk', 2, false),
+    (v_id, 'Hermetiske tomater', 'hermetiske tomater', 1,   'stk', 3, false),
+    (v_id, 'Gulost',             'gulost',             200, 'g',   4, false),
+    (v_id, 'Kjøttdeig',          'kjøttdeig',          300, 'g',   5, false),
+    (v_id, 'Paprika',            'paprika',            1,   'stk', 6, false),
+    (v_id, 'Løk',                'løk',                1,   'stk', 7, false),
+    (v_id, 'Bacon',              'bacon',              150, 'g',   8, false);
 
   -- 4. Kylling wok
-  insert into public.recipes (owner_id, name, description)
-  values (p_user_id, 'Kylling wok', 'Rask og sunn hverdagsmiddag')
+  insert into public.recipes (owner_id, name, description, instructions)
+  values (p_user_id, 'Kylling wok', 'Rask og sunn hverdagsmiddag', array[
+    'Kok ris etter anvisning.',
+    'Skjær kylling i biter og stek på høy varme i olje til gyldenbrun.',
+    'Tilsett grønnsaker og stek videre i 3–4 minutter.',
+    'Ha i soyasaus, hvitløk og sesamolje. Rør godt og server over ris.'
+  ])
   returning id into v_id;
-  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order) values
-    (v_id, 'Kyllingfilet', 'kyllingfilet', 400, 'g',   1),
-    (v_id, 'Ris',          'ris',          3,   'dl',  2),
-    (v_id, 'Paprika',      'paprika',      1,   'stk', 3),
-    (v_id, 'Gulrot',       'gulrot',       2,   'stk', 4),
-    (v_id, 'Løk',          'løk',          1,   'stk', 5),
-    (v_id, 'Soyasaus',     'soyasaus',     3,   'ss',  6),
-    (v_id, 'Hvitløk',      'hvitløk',      2,   'stk', 7),
-    (v_id, 'Sesamolje',    'sesamolje',    1,   'ss',  8);
+  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order, is_pantry_staple) values
+    (v_id, 'Kyllingfilet', 'kyllingfilet', 400, 'g',   1, false),
+    (v_id, 'Ris',          'ris',          3,   'dl',  2, true),
+    (v_id, 'Paprika',      'paprika',      1,   'stk', 3, false),
+    (v_id, 'Gulrot',       'gulrot',       2,   'stk', 4, false),
+    (v_id, 'Løk',          'løk',          1,   'stk', 5, false),
+    (v_id, 'Soyasaus',     'soyasaus',     3,   'dl',  6, true),
+    (v_id, 'Hvitløk',      'hvitløk',      2,   'stk', 7, false),
+    (v_id, 'Sesamolje',    'sesamolje',    1,   'dl',  8, true);
 
   -- 5. Laksemiddag
-  insert into public.recipes (owner_id, name, description)
-  values (p_user_id, 'Laksemiddag', 'Enkel og god hverdagsmiddag med fisk')
+  insert into public.recipes (owner_id, name, description, instructions)
+  values (p_user_id, 'Laksemiddag', 'Enkel og god hverdagsmiddag med fisk', array[
+    'Kok poteter i saltet vann i 20 minutter.',
+    'Stek laksen i smør på middels varme, ca. 4 minutter per side. Krydre med salt og pepper.',
+    'Kok brokkoli i 3–4 minutter.',
+    'Lag en enkel saus av fløte, smør og sitron. Server alt sammen.'
+  ])
   returning id into v_id;
-  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order) values
-    (v_id, 'Laks',    'laks',    600, 'g',   1),
-    (v_id, 'Potet',   'potet',   800, 'g',   2),
-    (v_id, 'Brokkoli','brokkoli',1,   'stk', 3),
-    (v_id, 'Smør',    'smør',    50,  'g',   4),
-    (v_id, 'Fløte',   'fløte',   2,   'dl',  5),
-    (v_id, 'Sitron',  'sitron',  1,   'stk', 6);
+  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order, is_pantry_staple) values
+    (v_id, 'Laks',     'laks',     600, 'g',   1, false),
+    (v_id, 'Potet',    'potet',    800, 'g',   2, false),
+    (v_id, 'Brokkoli', 'brokkoli', 1,   'stk', 3, false),
+    (v_id, 'Smør',     'smør',     50,  'g',   4, true),
+    (v_id, 'Fløte',    'fløte',    2,   'dl',  5, false),
+    (v_id, 'Sitron',   'sitron',   1,   'stk', 6, false);
 
   -- 6. Pølse og pommes frites
-  insert into public.recipes (owner_id, name, description)
-  values (p_user_id, 'Pølse og pommes frites', 'Barnas favoritt')
+  insert into public.recipes (owner_id, name, description, instructions)
+  values (p_user_id, 'Pølse og pommes frites', 'Barnas favoritt', array[
+    'Stek pommes frites i ovnen etter anvisning, ca. 20 minutter på 220°C.',
+    'Grill eller stek pølsene.',
+    'Server med ketchup og sennep.'
+  ])
   returning id into v_id;
-  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order) values
-    (v_id, 'Pølser',         'pølser',         8,   'stk', 1),
-    (v_id, 'Pommes frites',  'pommes frites',  400, 'g',   2),
-    (v_id, 'Ketchup',        'ketchup',        1,   'stk', 3),
-    (v_id, 'Sennep',         'sennep',         1,   'stk', 4);
+  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order, is_pantry_staple) values
+    (v_id, 'Pølser',        'pølser',        8,   'stk', 1, false),
+    (v_id, 'Pommes frites', 'pommes frites', 400, 'g',   2, false),
+    (v_id, 'Ketchup',       'ketchup',       1,   'stk', 3, false),
+    (v_id, 'Sennep',        'sennep',        1,   'stk', 4, false);
 
   -- 7. Havregrøt
-  insert into public.recipes (owner_id, name, description)
-  values (p_user_id, 'Havregrøt', 'Enkel og mettende frokost')
+  insert into public.recipes (owner_id, name, description, instructions)
+  values (p_user_id, 'Havregrøt', 'Enkel og mettende frokost', array[
+    'Kok opp melk i en kjele.',
+    'Tilsett havregryn og rør godt. Kok på lav varme i 3–5 minutter.',
+    'Server med sukker, smør og eventuelt bær eller syltetøy.'
+  ])
   returning id into v_id;
-  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order) values
-    (v_id, 'Havregryn', 'havregryn', 2,  'dl',  1),
-    (v_id, 'Melk',      'melk',      4,  'dl',  2),
-    (v_id, 'Sukker',    'sukker',    1,  'ss',  3),
-    (v_id, 'Smør',      'smør',      1,  'stk', 4);
+  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order, is_pantry_staple) values
+    (v_id, 'Havregryn', 'havregryn', 2, 'dl',  1, true),
+    (v_id, 'Melk',      'melk',      4, 'dl',  2, false),
+    (v_id, 'Sukker',    'sukker',    1, 'stk', 3, true),
+    (v_id, 'Smør',      'smør',      1, 'stk', 4, true);
 
   -- 8. Pannekaker
-  insert into public.recipes (owner_id, name, description)
-  values (p_user_id, 'Pannekaker', 'Tynne og gode pannekaker')
+  insert into public.recipes (owner_id, name, description, instructions)
+  values (p_user_id, 'Pannekaker', 'Tynne og gode pannekaker', array[
+    'Pisk sammen hvetemel, egg og halvparten av melken til en jevn røre uten klumper.',
+    'Tilsett resten av melken, smør og sukker. La røren hvile i 30 minutter.',
+    'Stek tynne pannekaker i smurt panne på middels-høy varme.',
+    'Server med syltetøy, sukker eller rømme.'
+  ])
   returning id into v_id;
-  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order) values
-    (v_id, 'Hvetemel', 'hvetemel', 300, 'g',   1),
-    (v_id, 'Egg',      'egg',      3,   'stk', 2),
-    (v_id, 'Melk',     'melk',     5,   'dl',  3),
-    (v_id, 'Smør',     'smør',     50,  'g',   4),
-    (v_id, 'Sukker',   'sukker',   1,   'ss',  5);
+  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order, is_pantry_staple) values
+    (v_id, 'Hvetemel', 'hvetemel', 300, 'g',   1, true),
+    (v_id, 'Egg',      'egg',      3,   'stk', 2, false),
+    (v_id, 'Melk',     'melk',     5,   'dl',  3, false),
+    (v_id, 'Smør',     'smør',     50,  'g',   4, true),
+    (v_id, 'Sukker',   'sukker',   1,   'stk', 5, true);
 
   -- 9. Hamburger
-  insert into public.recipes (owner_id, name, description)
-  values (p_user_id, 'Hamburger', 'Hjemmelaget burger med alt tilbehør')
+  insert into public.recipes (owner_id, name, description, instructions)
+  values (p_user_id, 'Hamburger', 'Hjemmelaget burger med alt tilbehør', array[
+    'Form kjøttdeig til burgerkaker, krydre med salt og pepper.',
+    'Stek på høy varme, ca. 3–4 minutter per side. Legg ost på de siste 2 minuttene.',
+    'Rist hamburgerbrødene lett i panne.',
+    'Bygg burgeren med salat, tomat, løk, ketchup og majones.'
+  ])
   returning id into v_id;
-  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order) values
-    (v_id, 'Kjøttdeig',      'kjøttdeig',      500, 'g',   1),
-    (v_id, 'Hamburgerbrød',  'hamburgerbrød',  4,   'stk', 2),
-    (v_id, 'Salat',          'salat',          1,   'stk', 3),
-    (v_id, 'Tomat',          'tomat',          2,   'stk', 4),
-    (v_id, 'Løk',            'løk',            1,   'stk', 5),
-    (v_id, 'Gulost',         'gulost',         100, 'g',   6),
-    (v_id, 'Ketchup',        'ketchup',        1,   'stk', 7),
-    (v_id, 'Majones',        'majones',        1,   'stk', 8);
+  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order, is_pantry_staple) values
+    (v_id, 'Kjøttdeig',     'kjøttdeig',     500, 'g',   1, false),
+    (v_id, 'Hamburgerbrød', 'hamburgerbrød', 4,   'stk', 2, false),
+    (v_id, 'Salat',         'salat',         1,   'stk', 3, false),
+    (v_id, 'Tomat',         'tomat',         2,   'stk', 4, false),
+    (v_id, 'Løk',           'løk',           1,   'stk', 5, false),
+    (v_id, 'Gulost',        'gulost',        100, 'g',   6, false),
+    (v_id, 'Ketchup',       'ketchup',       1,   'stk', 7, false),
+    (v_id, 'Majones',       'majones',       1,   'stk', 8, false);
 
   -- 10. Fiskesuppe
-  insert into public.recipes (owner_id, name, description)
-  values (p_user_id, 'Fiskesuppe', 'Kremet norsk fiskesuppe')
+  insert into public.recipes (owner_id, name, description, instructions)
+  values (p_user_id, 'Fiskesuppe', 'Kremet norsk fiskesuppe', array[
+    'Smelt smør i en gryte, stek purre og gulrot i 3 minutter.',
+    'Tilsett vann og buljongterning, kok opp. Ha i potet og kok i 10 minutter.',
+    'Tilsett fløte og la suppen småkoke i 5 minutter.',
+    'Ha i laksebiter og kok forsiktig i 4–5 minutter. Smak til med salt og pepper.'
+  ])
   returning id into v_id;
-  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order) values
-    (v_id, 'Laks',          'laks',          400, 'g',   1),
-    (v_id, 'Fløte',         'fløte',         2,   'dl',  2),
-    (v_id, 'Buljongterning','buljongterning',1,   'stk', 3),
-    (v_id, 'Gulrot',        'gulrot',        2,   'stk', 4),
-    (v_id, 'Potet',         'potet',         400, 'g',   5),
-    (v_id, 'Purre',         'purre',         1,   'stk', 6),
-    (v_id, 'Smør',          'smør',          50,  'g',   7);
+  insert into public.recipe_items (recipe_id, item_name, item_name_normalized, quantity, unit, sort_order, is_pantry_staple) values
+    (v_id, 'Laks',          'laks',          400, 'g',   1, false),
+    (v_id, 'Fløte',         'fløte',         2,   'dl',  2, false),
+    (v_id, 'Buljongterning','buljongterning',1,   'stk', 3, true),
+    (v_id, 'Gulrot',        'gulrot',        2,   'stk', 4, false),
+    (v_id, 'Potet',         'potet',         400, 'g',   5, false),
+    (v_id, 'Purre',         'purre',         1,   'stk', 6, false),
+    (v_id, 'Smør',          'smør',          50,  'g',   7, true);
 end;
 $$;
 
@@ -653,8 +705,8 @@ begin
   limit  1;
 
   if v_list_type_id is not null then
-    insert into public.lists (owner_id, list_type_id, name)
-    values (new.id, v_list_type_id, 'Handleliste');
+    insert into public.lists (owner_id, list_type_id, name, is_primary)
+    values (new.id, v_list_type_id, 'Handleliste', true);
   end if;
 
   return new;

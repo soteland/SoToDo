@@ -23,6 +23,7 @@ export interface List {
   list_type_id: string
   name: string
   is_visible_on_home: boolean
+  is_primary: boolean
   history_shared_at: string | null
   created_at: string
   // joined
@@ -59,6 +60,7 @@ export interface ListItem {
   avg_frequency_days: number | null
   sort_order: number
   unit: string
+  is_pantry_staple: boolean
   // joined
   added_by_profile?: Pick<Profile, 'id' | 'display_name' | 'color'>
 }
@@ -77,6 +79,7 @@ export interface Recipe {
   owner_id: string
   name: string
   description: string | null
+  instructions: string[]
   created_at: string
   items?: RecipeItem[]
 }
@@ -89,6 +92,7 @@ export interface RecipeItem {
   quantity: number
   unit: string
   sort_order: number
+  is_pantry_staple: boolean
 }
 
 export interface HjemmelagerItem {

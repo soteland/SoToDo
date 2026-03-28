@@ -134,6 +134,30 @@ export async function deleteListItem(id: string) {
   if (error) throw error
 }
 
+/** All unique items across all accessible lists — deduplicated by name_normalized.
+ *  Used as the catalog for recipe ingredient suggestions. */
+export async function fetchItemCatalog(): Promise<ListItem[]> {
+  const { data, error } = await supabase
+    .from('list_items')
+    .select('*')
+    .order('last_purchased_at', { ascending: false, nullsFirst: false })
+  if (error) throw error
+  // Deduplicate by name_normalized, keep highest-scored entry
+  const seen = new Set<string>()
+  return (data as ListItem[]).filter(item => {
+    if (seen.has(item.name_normalized)) return false
+    seen.add(item.name_normalized)
+    return true
+  })
+}
+
+export async function setPrimaryList(id: string | null, unsetId: string | null) {
+  const updates: Promise<void>[] = []
+  if (id) updates.push(updateList(id, { is_primary: true }))
+  if (unsetId) updates.push(updateList(unsetId, { is_primary: false }))
+  await Promise.all(updates)
+}
+
 // ── Smart suggestions: aggregate by name across accessible lists of same type
 
 export async function fetchSuggestions(
@@ -172,15 +196,64 @@ export async function fetchRecipe(id: string): Promise<Recipe> {
   return data as Recipe
 }
 
-export async function createRecipe(payload: { name: string; description?: string }) {
-  const { data, error } = await supabase.from('recipes').insert(payload).select().single()
+export async function createRecipe(payload: {
+  name: string
+  description?: string
+  instructions?: string[]
+}) {
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data, error } = await supabase
+    .from('recipes')
+    .insert({ ...payload, owner_id: user!.id })
+    .select()
+    .single()
   if (error) throw error
   return data as Recipe
+}
+
+export async function updateRecipe(id: string, patch: {
+  name?: string
+  description?: string
+  instructions?: string[]
+}) {
+  const { error } = await supabase.from('recipes').update(patch).eq('id', id)
+  if (error) throw error
 }
 
 export async function deleteRecipe(id: string) {
   const { error } = await supabase.from('recipes').delete().eq('id', id)
   if (error) throw error
+}
+
+export async function replaceRecipeItems(recipeId: string, items: {
+  item_name: string
+  quantity: number
+  unit: string
+  is_pantry_staple: boolean
+  sort_order: number
+}[]) {
+  const { error: delError } = await supabase.from('recipe_items').delete().eq('recipe_id', recipeId)
+  if (delError) throw delError
+  if (items.length === 0) return
+  const { error } = await supabase.from('recipe_items').insert(
+    items.map(i => ({
+      ...i,
+      recipe_id: recipeId,
+      item_name_normalized: i.item_name.toLowerCase().trim(),
+    }))
+  )
+  if (error) throw error
+}
+
+export async function importRecipeFromUrl(url: string): Promise<{
+  name: string
+  description: string
+  instructions: string[]
+  ingredients: { item_name: string; quantity: number; unit: string; is_pantry_staple: boolean }[]
+}> {
+  const { data, error } = await supabase.functions.invoke('import-recipe', { body: { url } })
+  if (error) throw error
+  return data
 }
 
 // ── Hjemmelager ───────────────────────────────────────────────

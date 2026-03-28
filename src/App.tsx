@@ -10,6 +10,7 @@ import { ListPage } from './pages/ListPage'
 import { NewListPage } from './pages/NewListPage'
 import { RecipesPage } from './pages/RecipesPage'
 import { RecipeDetailPage } from './pages/RecipeDetailPage'
+import { RecipeEditPage } from './pages/RecipeEditPage'
 import { HjemmelagerPage } from './pages/HjemmelagerPage'
 import { SettingsPage } from './pages/SettingsPage'
 
@@ -56,7 +57,9 @@ function AppRoutes() {
                 <Route path="/liste/:id" element={<ListPage />} />
                 <Route path="/ny-liste" element={<NewListPage />} />
                 <Route path="/oppskrifter" element={<RecipesPage />} />
+                <Route path="/oppskrifter/ny" element={<RecipeEditPage />} />
                 <Route path="/oppskrifter/:id" element={<RecipeDetailPage />} />
+                <Route path="/oppskrifter/:id/rediger" element={<RecipeEditPage />} />
                 <Route path="/hjemmelager" element={<HjemmelagerPage />} />
                 <Route path="/innstillinger" element={<SettingsPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

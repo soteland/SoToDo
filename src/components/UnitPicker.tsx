@@ -1,16 +1,19 @@
 import { cn } from '../lib/utils'
 
 export const UNITS = ['stk', 'g', 'kg', 'dl', 'L']
+export const UNITS_EXTENDED = ['stk', 'g', 'kg', 'ml', 'dl', 'L', 'ss', 'ts']
 
 interface UnitPickerProps {
   value: string
   onChange: (unit: string) => void
+  extended?: boolean
 }
 
-export function UnitPicker({ value, onChange }: UnitPickerProps) {
+export function UnitPicker({ value, onChange, extended }: UnitPickerProps) {
+  const units = extended ? UNITS_EXTENDED : UNITS
   return (
     <div className="flex gap-1.5 flex-wrap">
-      {UNITS.map(unit => (
+      {units.map(unit => (
         <button
           key={unit}
           type="button"

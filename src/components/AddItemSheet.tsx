@@ -4,7 +4,7 @@ import { Search, Plus, Minus } from 'lucide-react'
 import { Sheet, SheetContent } from './ui/sheet'
 import { Input } from './ui/input'
 import { Badge } from './ui/badge'
-import { addListItem, fetchListItems } from '../lib/queries'
+import { addListItem, fetchListItems, updateListItem } from '../lib/queries'
 import { normalizeItemName, timeSinceLabel, scoreItem, daysSince } from '../lib/utils'
 import { UnitPicker, formatQty } from './UnitPicker'
 import type { ListItem } from '../types'
@@ -33,7 +33,7 @@ export function AddItemSheet({ open, onClose, listId, listTypeId: _listTypeId, l
     // Focus input when sheet opens; reset state on close
     useEffect(() => {
         if (open) {
-            setTimeout(() => inputRef.current?.focus(), 100)
+            setTimeout(() => inputRef.current?.focus(), 300)
         } else {
             setSearch('')
             setQuantity(1)
@@ -42,8 +42,12 @@ export function AddItemSheet({ open, onClose, listId, listTypeId: _listTypeId, l
     }, [open])
 
     const addMutation = useMutation({
-        mutationFn: (name: string) =>
-            addListItem({ list_id: listId, name: name.trim(), quantity, unit }),
+        mutationFn: ({ name, existingId, existingQty }: { name: string; existingId?: string; existingQty?: number }) => {
+            if (existingId !== undefined && existingQty !== undefined) {
+                return updateListItem(existingId, { quantity: existingQty + quantity })
+            }
+            return addListItem({ list_id: listId, name: name.trim(), quantity, unit })
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['list-items', listId] })
             setSearch('')
@@ -58,7 +62,7 @@ export function AddItemSheet({ open, onClose, listId, listTypeId: _listTypeId, l
     // Build suggestions: scored items already on list (catalog), filtered by search
     const suggestions = (allItems ?? [])
         .filter(item => {
-            if (!normalizedSearch) return item.purchase_count > 0
+            if (!normalizedSearch) return true
             return item.name_normalized.includes(normalizedSearch)
         })
         .filter(item => !item.is_checked) // don't re-suggest active items
@@ -73,7 +77,6 @@ export function AddItemSheet({ open, onClose, listId, listTypeId: _listTypeId, l
             }),
         }))
         .sort((a, b) => b.score - a.score)
-        .slice(0, 8)
 
     // Check if search matches an existing item exactly
     const exactMatch = (allItems ?? []).find(
@@ -83,11 +86,17 @@ export function AddItemSheet({ open, onClose, listId, listTypeId: _listTypeId, l
     function addItem(name: string, itemUnit?: string) {
         if (!name.trim()) return
         if (itemUnit) setUnit(itemUnit)
-        addMutation.mutate(name)
+        const normalized = normalizeItemName(name)
+        const existing = (allItems ?? []).find(i => i.name_normalized === normalized && !i.is_checked)
+        if (existing) {
+            addMutation.mutate({ name, existingId: existing.id, existingQty: existing.quantity ?? 0 })
+        } else {
+            addMutation.mutate({ name })
+        }
     }
 
     function badgeFor(item: ListItem & { score: number }) {
-        if (item.is_starred) return { label: '⭐ Favoritt', className: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300' }
+        if (item.is_starred) return { label: '⭐', className: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300' }
         const days = daysSince(item.last_purchased_at)
         const label = timeSinceLabel(item.last_purchased_at)
         if (days !== null && item.avg_frequency_days && days >= item.avg_frequency_days * 0.9) {
@@ -101,7 +110,7 @@ export function AddItemSheet({ open, onClose, listId, listTypeId: _listTypeId, l
         <Sheet open={open} onOpenChange={v => !v && onClose()}>
             <SheetContent
                 side="bottom"
-                className="h-[80vh] px-0 pb-[env(safe-area-inset-bottom)] flex flex-col"
+                className="h-[93vh]! px-0 pb-[env(safe-area-inset-bottom)] flex flex-col border-t border-neutral-100 dark:border-neutral-800"
             >
                 {/* Search input */}
                 <div className="px-4 pt-2 pb-3 border-b border-neutral-100 dark:border-neutral-800 space-y-3">

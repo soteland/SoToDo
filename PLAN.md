@@ -424,8 +424,14 @@ Items with score > 0.6 get a badge. Top 5 shown in add sheet.
 - [x] ⋯ Item modal: edit name, comment, qty, star, stats, delete
 - [x] Purchase history written on check-off (DB trigger via RPC)
 - [x] Dark/light mode + system default (localStorage, pre-render class, settings toggle)
-- [ ] GitHub Actions → GitHub Pages deploy (workflow written, needs repo + secrets)
-- [ ] PWA icons (icon-192.png + icon-512.png missing)
+- [x] GitHub Actions → GitHub Pages deploy (workflow written, needs repo + secrets)
+- [x] PWA icons (icon-192.png + icon-512.png missing)
+- [ ] Make the add items taller - should be 80-90 vh
+- [ ] Do not blur background, make it 50% darker instead.
+- [ ] When i click + or add, activate the search field so keyboard pops up. Less clicks.
+- [ ] The suggestions list should be "infinite", that is most predicted for adding now on top and the rest just below in order of last used. Last bought on top.
+- [ ] Make sure top bar on iphone gets colored same as list color <meta name="apple-mobile-web-app-capable" content="yes"> https://gist.github.com/akshaykumar6/7a56c5ad8379b4cce945d218d6a67ef3
+
 
 ### Phase 2 — Smart
 - [ ] Smart suggestion scoring (time, star, day-of-week) — scoring fn done client-side, needs real aggregate query
