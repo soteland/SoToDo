@@ -20,8 +20,10 @@ export function SvgIcon({ name, className, style }: SvgIconProps) {
     fetch(`/icons/${name}.svg`)
       .then(r => r.text())
       .then(text => {
-        // Strip hardcoded fill attributes so currentColor takes over
-        const cleaned = text.replace(/\sfill="[^"]*"/g, ' fill="currentColor"')
+        // Ensure fill="currentColor" on the svg element so paths inherit it
+        const cleaned = text
+          .replace(/\sfill="[^"]*"/g, '')
+          .replace(/<svg /, '<svg fill="currentColor" ')
         cache[name] = cleaned
         setSvg(cleaned)
       })
