@@ -20,3 +20,14 @@ export function useListColor(hex: string): string {
   const isDark = useIsDark()
   return getPaletteColor(hex, isDark)
 }
+
+/** Sets the PWA theme-color meta tag. Pass null to reset to default. */
+export function useThemeColor(color: string | null) {
+  useEffect(() => {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+    if (!meta) return
+    const defaultColor = document.documentElement.classList.contains('dark') ? '#0a0a0a' : '#ffffff'
+    meta.content = color ?? defaultColor
+    return () => { meta.content = defaultColor }
+  }, [color])
+}

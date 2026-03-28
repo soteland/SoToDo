@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, Plus, Pencil } from 'lucide-react'
 import { fetchListItems, fetchList, checkOffItem, uncheckItem } from '../lib/queries'
-import { useListColor } from '../hooks/useListColor'
+import { useListColor, useThemeColor } from '../hooks/useListColor'
 import { Skeleton } from '../components/ui/skeleton'
 import { AddItemSheet } from '../components/AddItemSheet'
 import { ListEditSheet } from '../components/ListEditSheet'
@@ -90,6 +90,7 @@ export function ListPage() {
     const activeItems = items?.filter(i => !i.is_checked) ?? []
     const checkedItems = items?.filter(i => i.is_checked) ?? []
     const color = useListColor(list?.list_type?.color ?? '#6BBF8E')
+    useThemeColor(color)
 
     return (
         <div className="flex flex-col flex-1 min-h-0">
