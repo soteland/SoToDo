@@ -157,7 +157,7 @@ export function ListPage() {
             </div>
 
             {/* Add button — fixed at bottom */}
-            <div className="fixed bottom-14 right-4 pb-[env(safe-area-inset-bottom)]">
+            <div className="fixed bottom-22 right-4 pb-[env(safe-area-inset-bottom)]">
                 <button
                     onClick={() => setAddOpen(true)}
                     className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform text-white"

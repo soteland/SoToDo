@@ -19,9 +19,7 @@ export function HomePage() {
     return (
         <div className="flex flex-col flex-1 overflow-y-auto pb-16">
             {/* Scrollable top area — logo/branding, revealed on scroll up */}
-            <div className="flex items-end justify-center h-24 text-neutral-300 dark:text-neutral-700 text-sm select-none">
-                SoToDo
-            </div>
+
 
             {/* Tile grid */}
             <div className="grid grid-cols-2 gap-3 p-3">
