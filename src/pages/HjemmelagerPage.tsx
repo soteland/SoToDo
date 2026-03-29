@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Minus, Trash2, Search, X, ChevronRight, ArrowBigDown } from 'lucide-react'
+import { Plus, Minus, Search, X, ChevronRight, ArrowBigDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Sheet, SheetContent } from '../components/ui/sheet'
 import { Input } from '../components/ui/input'
@@ -8,7 +8,7 @@ import { Badge } from '../components/ui/badge'
 import { Skeleton } from '../components/ui/skeleton'
 import { PrimaryButton } from '../components/ui/PrimaryButton'
 import { UnitPicker, formatQty } from '../components/UnitPicker'
-import { normalizeItemName, timeSinceLabel, scoreItem, daysSince } from '../lib/utils'
+import { normalizeItemName, timeSinceLabel, scoreItem, daysSince, qtyStep } from '../lib/utils'
 import {
     fetchHjemmelager,
     addHjemmelagerItem,
@@ -19,7 +19,7 @@ import {
     fetchRecipeSuggestions,
 } from '../lib/queries'
 import type { HjemmelagerItem, ListItem } from '../types'
-import type { RecipeSuggestion } from '../lib/queries'
+import { SvgIcon } from '@/components/SvgIcon'
 
 function expiryLabel(expiresAt: string | null): { text: string; urgent: boolean; expired: boolean } | null {
     if (!expiresAt) return null
@@ -144,7 +144,7 @@ function AddItemSheet({ open, onClose }: AddSheetProps) {
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2 shrink-0">
                             <button
-                                onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                                onClick={() => setQuantity(q => Math.max(1, q - qtyStep(q)))}
                                 className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
                             >
                                 <Minus size={12} />
@@ -160,7 +160,7 @@ function AddItemSheet({ open, onClose }: AddSheetProps) {
                                 className="w-12 text-center text-sm font-medium text-neutral-900 dark:text-neutral-100 bg-transparent border-b border-neutral-300 dark:border-neutral-600 focus:outline-none focus:border-neutral-500"
                             />
                             <button
-                                onClick={() => setQuantity(q => q + 1)}
+                                onClick={() => setQuantity(q => q + qtyStep(q))}
                                 className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
                             >
                                 <Plus size={12} />
@@ -245,8 +245,89 @@ function AddItemSheet({ open, onClose }: AddSheetProps) {
     )
 }
 
+function HjemmelagerEditSheet({ item, onClose }: { item: HjemmelagerItem; onClose: () => void }) {
+    const queryClient = useQueryClient()
+    const [name, setName] = useState(item.item_name)
+    const [quantity, setQuantity] = useState(item.quantity)
+    const [unit, setUnit] = useState(item.unit ?? 'stk')
+    const [expiresAt, setExpiresAt] = useState(item.expires_at?.slice(0, 10) ?? '')
+
+    const saveMutation = useMutation({
+        mutationFn: () => updateHjemmelagerItem(item.id, {
+            item_name: name.trim(),
+            item_name_normalized: name.trim().toLowerCase(),
+            quantity,
+            unit,
+            expires_at: expiresAt || null,
+        }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['hjemmelager'] })
+            onClose()
+        },
+    })
+
+    const deleteMutation = useMutation({
+        mutationFn: () => deleteHjemmelagerItem(item.id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['hjemmelager'] })
+            onClose()
+        },
+    })
+
+    return (
+        <Sheet open onOpenChange={v => !v && onClose()}>
+            <SheetContent side="bottom" className="rounded-t-2xl px-4 pb-[env(safe-area-inset-bottom)] flex flex-col gap-4">
+                <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 pt-1">Rediger vare</p>
+
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder="Varenavn..." className="h-11" />
+
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={() => setQuantity(q => Math.max(1, q - qtyStep(q)))} className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70">
+                            <Minus size={12} />
+                        </button>
+                        <input
+                            type="text" inputMode="numeric" value={quantity}
+                            onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v) && v > 0) setQuantity(v) }}
+                            className="w-12 text-center text-sm font-medium text-neutral-900 dark:text-neutral-100 bg-transparent border-b border-neutral-300 dark:border-neutral-600 focus:outline-none"
+                        />
+                        <button onClick={() => setQuantity(q => q + qtyStep(q))} className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70">
+                            <Plus size={12} />
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-x-auto">
+                        <UnitPicker value={unit} onChange={setUnit} />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <span className="text-xs text-neutral-400 shrink-0">Utløper</span>
+                    <input
+                        type="date" value={expiresAt} onChange={e => setExpiresAt(e.target.value)}
+                        className="flex-1 h-9 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-transparent px-3 text-sm text-neutral-900 dark:text-neutral-100"
+                    />
+                    {expiresAt && <button onClick={() => setExpiresAt('')} className="text-neutral-400"><X size={16} /></button>}
+                </div>
+
+                <PrimaryButton onClick={() => saveMutation.mutate()} disabled={!name.trim() || saveMutation.isPending}>
+                    {saveMutation.isPending ? 'Lagrer...' : 'Lagre'}
+                </PrimaryButton>
+
+                <button
+                    onClick={() => deleteMutation.mutate()}
+                    disabled={deleteMutation.isPending}
+                    className="w-full h-11 text-red-500 text-sm font-medium active:opacity-70 disabled:opacity-40 mb-2"
+                >
+                    Slett vare
+                </button>
+            </SheetContent>
+        </Sheet>
+    )
+}
+
 function ItemRow({ item }: { item: HjemmelagerItem }) {
     const queryClient = useQueryClient()
+    const [editOpen, setEditOpen] = useState(false)
     const expiry = expiryLabel(item.expires_at)
 
     const updateQty = useMutation({
@@ -265,58 +346,33 @@ function ItemRow({ item }: { item: HjemmelagerItem }) {
         onSettled: () => queryClient.invalidateQueries({ queryKey: ['hjemmelager'] }),
     })
 
-    const deleteMutation = useMutation({
-        mutationFn: () => deleteHjemmelagerItem(item.id),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hjemmelager'] }),
-    })
-
     return (
-        <div className={`flex items-center gap-3 px-4 min-h-[56px] border-b border-neutral-100 dark:border-neutral-800 ${expiry?.expired ? 'opacity-50' : ''}`}>
-            <div className="flex-1 min-w-0">
-                <p className="text-sm text-neutral-900 dark:text-neutral-100 truncate">{item.item_name}</p>
-                {expiry && (
-                    <p className={`text-xs mt-0.5 ${expiry.expired
-                        ? 'text-neutral-400'
-                        : expiry.urgent
-                            ? 'text-red-500 dark:text-red-400'
-                            : 'text-neutral-400'
-                        }`}>
-                        {expiry.text}
-                    </p>
-                )}
+        <>
+            <div className={`flex items-center gap-3 px-4 min-h-14 border-b border-neutral-100 dark:border-neutral-800 ${expiry?.expired ? 'opacity-50' : ''}`}>
+                <button className="flex-1 min-w-0 text-left py-2" onClick={() => setEditOpen(true)}>
+                    <p className="text-sm text-neutral-900 dark:text-neutral-100 truncate">{item.item_name}</p>
+                    {expiry && (
+                        <p className={`text-xs mt-0.5 ${expiry.expired ? 'text-neutral-400' : expiry.urgent ? 'text-red-500 dark:text-red-400' : 'text-neutral-400'}`}>
+                            {expiry.text}
+                        </p>
+                    )}
+                </button>
+
+                <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={() => updateQty.mutate(Math.max(1, item.quantity - qtyStep(item.quantity)))} className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70">
+                        <Minus size={12} />
+                    </button>
+                    <span className="text-sm text-neutral-900 dark:text-neutral-100 min-w-10 text-center">
+                        {formatQty(item.quantity, item.unit) ?? item.quantity}
+                    </span>
+                    <button onClick={() => updateQty.mutate(item.quantity + qtyStep(item.quantity))} className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70">
+                        <Plus size={12} />
+                    </button>
+                </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-                <button
-                    onClick={() => {
-                        if (item.quantity <= 1) {
-                            deleteMutation.mutate()
-                        } else {
-                            updateQty.mutate(item.quantity - 1)
-                        }
-                    }}
-                    className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
-                >
-                    <Minus size={12} />
-                </button>
-                <span className="text-sm text-neutral-900 dark:text-neutral-100 min-w-[2.5rem] text-center">
-                    {formatQty(item.quantity, item.unit) ?? item.quantity}
-                </span>
-                <button
-                    onClick={() => updateQty.mutate(item.quantity + 1)}
-                    className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
-                >
-                    <Plus size={12} />
-                </button>
-            </div>
-
-            <button
-                onClick={() => deleteMutation.mutate()}
-                className="w-9 h-9 flex items-center justify-center text-neutral-300 dark:text-neutral-600 active:text-red-500 dark:active:text-red-400 transition-colors"
-            >
-                <Trash2 size={16} />
-            </button>
-        </div>
+            {editOpen && <HjemmelagerEditSheet item={item} onClose={() => setEditOpen(false)} />}
+        </>
     )
 }
 
@@ -463,8 +519,11 @@ export function HjemmelagerPage() {
 
     return (
         <div className="flex flex-col flex-1 min-h-0">
-            <div className="px-4 py-3 border-b border-neutral-100 dark:border-neutral-800">
-                <h1 className="text-lg text-center font-semibold text-neutral-900 dark:text-neutral-100">Kjøleskap og fryseboks</h1>
+            <div className="px-4 py-3 border-b border-neutral-100 dark:border-neutral-800 ">
+                <h1 className="text-white font-semibold text-lg flex-1 flex items-center gap-2">
+                    <SvgIcon name={
+                        'refrigerator'
+                    } className="w-5 h-5 text-white shrink-0" />Kjøleskap og fryseboks</h1>
             </div>
 
             <div className="flex-1 overflow-y-auto pb-24">

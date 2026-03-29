@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { updateListItem, deleteListItem } from '../lib/queries'
+import { qtyStep } from '../lib/utils'
 import { UnitPicker } from './UnitPicker'
 import type { ListItem } from '../types'
 
@@ -83,7 +84,7 @@ export function ItemModal({ item, listId, open, onClose }: ItemModalProps) {
             <label className="text-xs text-neutral-500">Antall</label>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                onClick={() => setQuantity(q => Math.max(1, q - qtyStep(q)))}
                 className="w-11 h-11 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
               >
                 <Minus size={16} />
@@ -99,7 +100,7 @@ export function ItemModal({ item, listId, open, onClose }: ItemModalProps) {
                 className="w-14 text-center text-xl font-medium text-neutral-900 dark:text-neutral-100 bg-transparent border-b border-neutral-300 dark:border-neutral-600 focus:outline-none focus:border-neutral-500"
               />
               <button
-                onClick={() => setQuantity(q => q + 1)}
+                onClick={() => setQuantity(q => q + qtyStep(q))}
                 className="w-11 h-11 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
               >
                 <Plus size={16} />

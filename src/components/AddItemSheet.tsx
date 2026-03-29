@@ -5,7 +5,7 @@ import { Sheet, SheetContent } from './ui/sheet'
 import { Input } from './ui/input'
 import { Badge } from './ui/badge'
 import { addListItem, fetchListItems, updateListItem } from '../lib/queries'
-import { normalizeItemName, timeSinceLabel, scoreItem, daysSince } from '../lib/utils'
+import { normalizeItemName, timeSinceLabel, scoreItem, daysSince, qtyStep } from '../lib/utils'
 import { UnitPicker, formatQty } from './UnitPicker'
 import type { ListItem } from '../types'
 
@@ -138,7 +138,7 @@ export function AddItemSheet({ open, onClose, listId, listTypeId: _listTypeId, l
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2 shrink-0">
                             <button
-                                onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                                onClick={() => setQuantity(q => Math.max(1, q - qtyStep(q)))}
                                 className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
                             >
                                 <Minus size={12} />
@@ -154,7 +154,7 @@ export function AddItemSheet({ open, onClose, listId, listTypeId: _listTypeId, l
                                 className="w-12 text-center text-sm font-medium text-neutral-900 dark:text-neutral-100 bg-transparent border-b border-neutral-300 dark:border-neutral-600 focus:outline-none focus:border-neutral-500"
                             />
                             <button
-                                onClick={() => setQuantity(q => q + 1)}
+                                onClick={() => setQuantity(q => q + qtyStep(q))}
                                 className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
                             >
                                 <Plus size={12} />

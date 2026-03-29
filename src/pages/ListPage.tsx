@@ -9,6 +9,7 @@ import { AddItemSheet } from '../components/AddItemSheet'
 import { ListEditSheet } from '../components/ListEditSheet'
 import { ItemRow } from '../components/ItemRow'
 import type { ListItem } from '../types'
+import { SvgIcon } from '@/components/SvgIcon'
 
 export function ListPage() {
     const { id } = useParams<{ id: string }>()
@@ -101,14 +102,17 @@ export function ListPage() {
             >
                 <button
                     onClick={() => navigate(-1)}
-                    className="text-white/90 p-1 -ml-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    className="text-white/90 p-1 -ml-1 min-h-11 min-w-11 flex items-center justify-center"
                 >
                     <ChevronLeft size={24} />
                 </button>
-                <h1 className="text-white font-semibold text-lg flex-1">{list?.name ?? '...'}</h1>
+                <h1 className="text-white font-semibold text-lg flex-1 flex items-center gap-2">
+                    <SvgIcon name={list?.list_type?.icon_name ?? 'list'} className="w-5 h-5 text-white shrink-0" />
+                    {list?.name ?? '...'}
+                </h1>
                 <button
                     onClick={() => setEditOpen(true)}
-                    className="text-white/80 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    className="text-white/80 min-h-11 min-w-11 flex items-center justify-center"
                 >
                     <Pencil size={18} />
                 </button>

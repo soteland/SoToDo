@@ -53,9 +53,9 @@ export function ListEditSheet({ list, open, onClose }: ListEditSheetProps) {
         <Sheet open={open} onOpenChange={v => !v && onClose()}>
             <SheetContent
                 side="bottom"
-                className="rounded-t-2xl px-4 pb-[env(safe-area-inset-bottom)] flex flex-col gap-5 max-h-[90dvh] overflow-y-auto"
+                className=" px-4 pb-3 flex flex-col gap-5 h-screen! overflow-y-auto border-0!"
             >
-                <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 pt-1">
+                <p className="text-lg font-medium text-neutral-900 dark:text-neutral-100 pt-2">
                     Rediger liste
                 </p>
 

@@ -27,10 +27,6 @@ export function HomePage() {
                     <Skeleton key={i} className="h-28 rounded-xl" />
                 ))}
 
-                {visibleLists.map(list => (
-                    <ListTile key={list.id} list={list} onClick={() => navigate(`/liste/${list.id}`)} />
-                ))}
-
                 <button
                     onClick={() => navigate('/ny-liste')}
                     className="h-28 rounded-xl border-2 border-dashed border-neutral-200 dark:border-neutral-800 flex flex-col items-center justify-center gap-1 text-neutral-400 dark:text-neutral-600 active:opacity-70 transition-opacity"
@@ -38,6 +34,12 @@ export function HomePage() {
                     <Plus size={24} strokeWidth={1.5} />
                     <span className="text-xs">Ny liste</span>
                 </button>
+
+                {visibleLists.map(list => (
+                    <ListTile key={list.id} list={list} onClick={() => navigate(`/liste/${list.id}`)} />
+                ))}
+
+
             </div>
         </div>
     )

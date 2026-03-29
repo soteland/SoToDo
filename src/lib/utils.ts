@@ -6,6 +6,13 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 
+/** Step size for quantity +/- buttons based on current value */
+export function qtyStep(qty: number): number {
+  if (qty >= 1000) return 500
+  if (qty >= 100) return 100
+  return 1
+}
+
 export function normalizeItemName(name: string): string {
   return name.toLowerCase().trim()
 }

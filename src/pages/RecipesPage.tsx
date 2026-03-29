@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { fetchRecipes, seedMyRecipes } from '../lib/queries'
 import { Skeleton } from '../components/ui/skeleton'
+import { SvgIcon } from '@/components/SvgIcon'
 
 export function RecipesPage() {
     const navigate = useNavigate()
@@ -19,10 +20,13 @@ export function RecipesPage() {
     return (
         <div className="flex flex-col flex-1 pb-16">
             <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100 dark:border-neutral-800">
-                <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Oppskrifter</h1>
+                <h1 className="text-white font-semibold text-lg flex-1 flex items-center gap-2">
+                    <SvgIcon name="refrigerator" className="w-5 h-5 text-white shrink-0" />
+                    Oppskrifter
+                </h1>
                 <button
                     onClick={() => navigate('/oppskrifter/ny')}
-                    className="min-w-11 min-h-11 flex items-center justify-center text-neutral-500"
+                    className="flex items-center justify-center text-neutral-500"
                 >
                     <Plus size={22} />
                 </button>
