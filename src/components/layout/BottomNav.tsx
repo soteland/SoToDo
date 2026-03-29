@@ -11,7 +11,7 @@ const links = [
 
 export function BottomNav() {
     return (
-        <nav className="fixed bottom-0 inset-x-0 z-50 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 pb-[env(safe-area-inset-bottom)]">
+        <nav className="fixed bottom-0 inset-x-0 z-50 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950">
             <div className="flex h-18">
                 {links.map(({ to, icon: Icon, label }) => (
                     <NavLink
