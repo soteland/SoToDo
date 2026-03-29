@@ -196,7 +196,7 @@ create table public.recipe_share_tokens (
 
 create table public.hjemmelager (
   id                  uuid        primary key default gen_random_uuid(),
-  user_id             uuid        not null references auth.users(id) on delete cascade,
+  user_id             uuid        not null default auth.uid() references auth.users(id) on delete cascade,
   item_name           text        not null,
   item_name_normalized text       not null,
   list_type_id        uuid        references public.list_types(id) on delete set null,
@@ -887,6 +887,47 @@ begin
 end;
 $$;
 
+-- ── Hva kan jeg lage? ────────────────────────────────────────
+-- Scores user's recipes by non-staple ingredients in hjemmelager.
+-- Returns top 3 by match score.
+
+create or replace function public.suggest_recipes_from_hjemmelager()
+returns table (
+  id                 uuid,
+  name               text,
+  description        text,
+  total_ingredients  bigint,
+  available_count    bigint,
+  missing_count      bigint,
+  match_score        float,
+  missing_items      text[]
+)
+language sql
+stable
+as $$
+  select
+    r.id,
+    r.name,
+    r.description,
+    count(ri.id)                                                                as total_ingredients,
+    count(h.id)                                                                 as available_count,
+    count(ri.id) - count(h.id)                                                  as missing_count,
+    count(h.id)::float / count(ri.id)                                           as match_score,
+    array_agg(ri.item_name order by ri.sort_order) filter (where h.id is null) as missing_items
+  from public.recipes r
+  join public.recipe_items ri on ri.recipe_id = r.id
+  left join public.hjemmelager h
+    on  h.item_name_normalized = ri.item_name_normalized
+    and h.user_id = auth.uid()
+  where r.owner_id = auth.uid()
+    and ri.is_pantry_staple = false
+  group by r.id, r.name, r.description
+  having count(ri.id) > 0
+  order by match_score desc, available_count desc
+  limit 3
+$$;
+
+
 -- ============================================================
 -- LOCK DOWN HELPER FUNCTIONS TO AUTHENTICATED ROLE ONLY
 -- ============================================================
@@ -900,3 +941,4 @@ grant execute on function public.member_list_ids()     to authenticated;
 grant execute on function public.owned_list_ids()      to authenticated;
 grant execute on function public.accessible_list_ids() to authenticated;
 grant execute on function public.ai_within_rate_limit(text) to authenticated;
+grant execute on function public.suggest_recipes_from_hjemmelager() to authenticated;

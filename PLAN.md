@@ -410,54 +410,65 @@ Items with score > 0.6 get a badge. Top 5 shown in add sheet.
 
 ## Feature Phases
 
-### Phase 1 — MVP (build this first)
+### Phase 1 — MVP ✅ Done
 - [x] Supabase project setup (DB schema, RLS policies, triggers, seeded list types)
 - [x] Vite + React + shadcn/ui scaffold
-- [x] PWA manifest + install prompt (vite-plugin-pwa)
+- [x] PWA manifest + install prompt (vite-plugin-pwa) + icons
 - [x] Auth: email+password + magic link, session persistence, invite-only registration
-- [ ] Onboarding wizard (list selection + recipe import)
 - [x] Home screen: 2-column list tile grid, "Ny liste" tile
 - [x] Ny liste: template tiles + custom creation (icon picker, color swatches)
 - [x] Units: stk/g/kg/ml/dl/L/ss/ts/pakke/boks/flaske/pose — on list items, hjemmelager, recipes
 - [x] Liste screen: active items, check off (optimistic), greyed-out section, separator
-- [x] Legg til: search, scored suggestions with badges, create new item
+- [x] Legg til: search, scored suggestions with badges, create new item, duplicate → increment qty
 - [x] ⋯ Item modal: edit name, comment, qty, star, stats, delete
 - [x] Purchase history written on check-off (DB trigger via RPC)
 - [x] Dark/light mode + system default (localStorage, pre-render class, settings toggle)
-- [x] GitHub Actions → GitHub Pages deploy (workflow written, needs repo + secrets)
-- [x] PWA icons (icon-192.png + icon-512.png missing)
-- [ ] Make the add items taller - should be 80-90 vh
-- [ ] Do not blur background, make it 50% darker instead.
-- [ ] When i click + or add, activate the search field so keyboard pops up. Less clicks.
-- [ ] The suggestions list should be "infinite", that is most predicted for adding now on top and the rest just below in order of last used. Last bought on top.
-- [ ] Make sure top bar on iphone gets colored same as list color <meta name="apple-mobile-web-app-capable" content="yes"> https://gist.github.com/akshaykumar6/7a56c5ad8379b4cce945d218d6a67ef3
+- [x] GitHub Actions → GitHub Pages deploy
+- [x] Recipes: list, detail, create/edit, ingredient picker, import from URL (Claude Haiku)
+- [x] Hjemmelager: add (catalog search), expiry tracking, grouped by urgency, recently purchased suggestions
 
 
 ### Phase 2 — Smart
-- [ ] Smart suggestion scoring (time, star, day-of-week) — scoring fn done client-side, needs real aggregate query
-- [ ] "Often bought together" learned from history
+
+#### ✅ Done
+- [x] Scoring fn client-side (time since purchase, star, avg frequency) — works with current list items
+
+#### Next up
+- [ ] **"Hva kan jeg lage?" — Recipe suggestions from Hjemmelager** ← NEXT
+  - User taps "Foreslå oppskrift" from Hjemmelager
+  - Edge function scores all user's recipes by how many ingredients are already in hjemmelager (matched by `item_name_normalized`)
+  - Returns top 3 recipes, each showing: name, X of Y ingredients available, which ones are missing
+  - Tap a recipe → go to recipe detail with "du har X av Y varer" visible
+  - Missing items highlighted / easy one-tap add to handleliste
+
+#### Soon
+- [ ] Smart suggestions ranked by purchase history — items you haven't bought in a while (relative to your avg frequency) float to the top. Already scoring client-side; needs `last_purchased_at` + `avg_frequency_days` populated from real usage.
+- [ ] Recipe completion detection + ℹ️ nudge in list view — if ≥80% of a recipe's items are on the active list, show strip: "Du mangler bare X fra Tacokveld"
+
+#### Later
+- [ ] "Often bought together" — learned from `purchase_history`, written to `item_associations`
 - [ ] Admin association rules (Innstillinger → Assosiasjoner)
-- [ ] Recipe completion detection + ℹ️ nudge
-- [x] Oppskrifter tab: list view with item count
-- [ ] Recipe detail page: ingredients, preview have/need, add all to list
+- [ ] AI: subcategory grouping headers in list view (aisle grouping — `subcategory` column exists on `list_items`, skip for now)
 - [ ] Move scoring to Supabase Edge Function
-- [ ] AI: subcategory grouping headers in list view
-- [ ] AI: lag oppskrift fra URL eller tekst (Sonnet)
 - [ ] AI: duplikat-deteksjon ved varetillegg (Haiku)
 
 ### Phase 3 — Polish & Power
-- [ ] Subcategories within Dagligvarer — UI toggle
-- [ ] Household sharing (see full spec below)
-- [x] Hjemmelager — MVP: add/remove/quantity, expiry tracking, grouped by urgency
-- [ ] Hjemmelager — "Hva kan jeg lage?" (AI, Sonnet)
-- [ ] AI: handleliste-innsikt og anbefalinger (Haiku)
+- [ ] Step-by-step cooking instructions in recipes (schema ready: `instructions text[]`)
 - [ ] Configurable recipe completion threshold
-- [ ] Step-by-step cooking instructions in recipes
-- [ ] List sharing: invite link, join flow, colored dots per member
+- [ ] AI: handleliste-innsikt og anbefalinger (Haiku)
+- [ ] Subcategories within Dagligvarer — UI toggle (aisle grouping, `subcategory` column exists)
 - [ ] Cloudflare / Turnstile bot protection on auth
 - [ ] Budget tracking per shop
 - [ ] Item image (camera or URL)
 - [ ] Barcode scan to add items
+
+#### On ice
+- [ ] List sharing: invite link, join flow, colored dots per member (full DB schema exists, no UI)
+- [ ] Household sharing — see spec below (on ice until list sharing is working)
+
+### Maybe someday
+- [ ] Onboarding wizard (step-by-step first-run flow — users manage fine without it)
+- [ ] Recipe share tokens / magic link sharing
 
 ---
 

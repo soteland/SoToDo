@@ -318,3 +318,20 @@ export async function deleteHjemmelagerItem(id: string) {
   const { error } = await supabase.from('hjemmelager').delete().eq('id', id)
   if (error) throw error
 }
+
+export interface RecipeSuggestion {
+  id: string
+  name: string
+  description: string | null
+  total_ingredients: number
+  available_count: number
+  missing_count: number
+  match_score: number
+  missing_items: string[] | null
+}
+
+export async function fetchRecipeSuggestions(): Promise<RecipeSuggestion[]> {
+  const { data, error } = await supabase.rpc('suggest_recipes_from_hjemmelager')
+  if (error) throw error
+  return data as RecipeSuggestion[]
+}

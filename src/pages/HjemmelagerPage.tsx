@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Minus, Trash2, Search, X } from 'lucide-react'
+import { Plus, Minus, Trash2, Search, X, ChevronRight, ArrowBigDown } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { Sheet, SheetContent } from '../components/ui/sheet'
 import { Input } from '../components/ui/input'
 import { Badge } from '../components/ui/badge'
 import { Skeleton } from '../components/ui/skeleton'
+import { PrimaryButton } from '../components/ui/PrimaryButton'
 import { UnitPicker, formatQty } from '../components/UnitPicker'
 import { normalizeItemName, timeSinceLabel, scoreItem, daysSince } from '../lib/utils'
 import {
@@ -14,8 +16,10 @@ import {
     deleteHjemmelagerItem,
     fetchItemCatalog,
     fetchPrimaryListItems,
+    fetchRecipeSuggestions,
 } from '../lib/queries'
 import type { HjemmelagerItem, ListItem } from '../types'
+import type { RecipeSuggestion } from '../lib/queries'
 
 function expiryLabel(expiresAt: string | null): { text: string; urgent: boolean; expired: boolean } | null {
     if (!expiresAt) return null
@@ -66,11 +70,7 @@ function AddItemSheet({ open, onClose }: AddSheetProps) {
             }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hjemmelager'] })
-            setSearch('')
-            setQuantity(1)
-            setUnit('stk')
-            setExpiresAt('')
-            inputRef.current?.focus()
+            onClose()
         },
     })
 
@@ -149,9 +149,16 @@ function AddItemSheet({ open, onClose }: AddSheetProps) {
                             >
                                 <Minus size={12} />
                             </button>
-                            <span className="w-5 text-center text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                                {quantity}
-                            </span>
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                value={quantity}
+                                onChange={e => {
+                                    const v = parseInt(e.target.value)
+                                    if (!isNaN(v) && v > 0) setQuantity(v)
+                                }}
+                                className="w-12 text-center text-sm font-medium text-neutral-900 dark:text-neutral-100 bg-transparent border-b border-neutral-300 dark:border-neutral-600 focus:outline-none focus:border-neutral-500"
+                            />
                             <button
                                 onClick={() => setQuantity(q => q + 1)}
                                 className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
@@ -211,9 +218,9 @@ function AddItemSheet({ open, onClose }: AddSheetProps) {
                     {search.trim() && !exactMatch && (
                         <button
                             onClick={() => addItem(search)}
-                            className="w-full flex items-center gap-3 px-4 min-h-[52px] text-left active:bg-neutral-50 dark:active:bg-neutral-900"
+                            className="w-full flex items-center gap-3 px-4 min-h-13 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
                         >
-                            <div className="w-7 h-7 rounded-full bg-neutral-900 dark:bg-neutral-100 flex items-center justify-center text-white dark:text-neutral-900 flex-shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-neutral-900 dark:bg-neutral-100 flex items-center justify-center text-white dark:text-neutral-900 shrink-0">
                                 <Plus size={16} />
                             </div>
                             <span className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -221,6 +228,17 @@ function AddItemSheet({ open, onClose }: AddSheetProps) {
                             </span>
                         </button>
                     )}
+                </div>
+
+                {/* Close modal */}
+                <div className="fixed bottom-22 right-4 pb-[env(safe-area-inset-bottom)]">
+                    <button
+                        onClick={onClose}
+                        className="w-14 h-14 rounded-full bg-neutral-900 dark:bg-neutral-100 text-neutral-50 dark:text-neutral-900 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+                    >
+
+                        <ArrowBigDown size={28} strokeWidth={2} />
+                    </button>
                 </div>
             </SheetContent>
         </Sheet>
@@ -357,8 +375,74 @@ function RecentlyPurchasedSection({ hjemmelagerItems }: { hjemmelagerItems: Hjem
     )
 }
 
+function RecipeSuggestionSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+    const navigate = useNavigate()
+    const { data: suggestions, isLoading, error } = useQuery({
+        queryKey: ['recipe-suggestions'],
+        queryFn: fetchRecipeSuggestions,
+        enabled: open,
+    })
+
+    return (
+        <Sheet open={open} onOpenChange={v => !v && onClose()}>
+            <SheetContent side="bottom" className="rounded-t-2xl px-0 pb-[env(safe-area-inset-bottom)] flex flex-col max-h-[80vh]">
+                <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 px-4 pt-1 pb-3 border-b border-neutral-100 dark:border-neutral-800">
+                    Hva kan jeg lage?
+                </p>
+
+                <div className="flex-1 overflow-y-auto">
+                    {isLoading && (
+                        <div className="p-4 space-y-3">
+                            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20" />)}
+                        </div>
+                    )}
+
+                    {error && (
+                        <p className="text-sm text-neutral-400 text-center mt-8 px-6">
+                            Kunne ikke hente forslag. Prøv igjen.
+                        </p>
+                    )}
+
+                    {!isLoading && !error && suggestions?.length === 0 && (
+                        <p className="text-sm text-neutral-400 text-center mt-8 px-6">
+                            Ingen oppskrifter matcher det du har på lager.
+                        </p>
+                    )}
+
+                    {suggestions?.map(s => (
+                        <button
+                            key={s.id}
+                            onClick={() => { navigate(`/oppskrifter/${s.id}`); onClose() }}
+                            className="w-full flex items-start gap-3 px-4 py-3 border-b border-neutral-100 dark:border-neutral-900 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
+                        >
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{s.name}</p>
+                                <p className="text-xs text-neutral-400 mt-0.5">
+                                    {s.available_count} av {s.total_ingredients} varer på lager
+                                </p>
+                                {s.missing_items && s.missing_items.length > 0 && (
+                                    <p className="text-xs text-neutral-400 mt-0.5">
+                                        Mangler: {s.missing_items.join(', ')}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                                <span className="text-xs font-medium text-neutral-500">
+                                    {Math.round(s.match_score * 100)}%
+                                </span>
+                                <ChevronRight size={14} className="text-neutral-300 dark:text-neutral-600" />
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            </SheetContent>
+        </Sheet>
+    )
+}
+
 export function HjemmelagerPage() {
     const [addOpen, setAddOpen] = useState(false)
+    const [suggestOpen, setSuggestOpen] = useState(false)
 
     const { data: items, isLoading } = useQuery({
         queryKey: ['hjemmelager'],
@@ -426,6 +510,14 @@ export function HjemmelagerPage() {
                 )}
 
                 {!isLoading && <RecentlyPurchasedSection hjemmelagerItems={items ?? []} />}
+
+                {!isLoading && (items?.length ?? 0) > 0 && (
+                    <div className="px-4 py-4">
+                        <PrimaryButton onClick={() => setSuggestOpen(true)}>
+                            Hva kan jeg lage?
+                        </PrimaryButton>
+                    </div>
+                )}
             </div>
 
             {/* FAB */}
@@ -439,6 +531,7 @@ export function HjemmelagerPage() {
             </div>
 
             <AddItemSheet open={addOpen} onClose={() => setAddOpen(false)} />
+            <RecipeSuggestionSheet open={suggestOpen} onClose={() => setSuggestOpen(false)} />
         </div>
     )
 }

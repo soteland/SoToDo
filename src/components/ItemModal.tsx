@@ -88,7 +88,16 @@ export function ItemModal({ item, listId, open, onClose }: ItemModalProps) {
               >
                 <Minus size={16} />
               </button>
-              <span className="text-xl font-medium w-10 text-center">{quantity}</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={quantity}
+                onChange={e => {
+                  const v = parseInt(e.target.value)
+                  if (!isNaN(v) && v > 0) setQuantity(v)
+                }}
+                className="w-14 text-center text-xl font-medium text-neutral-900 dark:text-neutral-100 bg-transparent border-b border-neutral-300 dark:border-neutral-600 focus:outline-none focus:border-neutral-500"
+              />
               <button
                 onClick={() => setQuantity(q => q + 1)}
                 className="w-11 h-11 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"

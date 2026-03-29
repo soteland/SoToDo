@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, Plus, Minus } from 'lucide-react'
+import { Search, Plus, Minus, ArrowBigDown } from 'lucide-react'
 import { Sheet, SheetContent } from './ui/sheet'
 import { Input } from './ui/input'
 import { Badge } from './ui/badge'
@@ -143,9 +143,16 @@ export function AddItemSheet({ open, onClose, listId, listTypeId: _listTypeId, l
                             >
                                 <Minus size={12} />
                             </button>
-                            <span className="w-5 text-center text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                                {quantity}
-                            </span>
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                value={quantity}
+                                onChange={e => {
+                                    const v = parseInt(e.target.value)
+                                    if (!isNaN(v) && v > 0) setQuantity(v)
+                                }}
+                                className="w-12 text-center text-sm font-medium text-neutral-900 dark:text-neutral-100 bg-transparent border-b border-neutral-300 dark:border-neutral-600 focus:outline-none focus:border-neutral-500"
+                            />
                             <button
                                 onClick={() => setQuantity(q => q + 1)}
                                 className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:opacity-70"
@@ -203,6 +210,17 @@ export function AddItemSheet({ open, onClose, listId, listTypeId: _listTypeId, l
                             </span>
                         </button>
                     )}
+                </div>
+
+                {/* Close modal */}
+                <div className="fixed bottom-22 right-4 pb-[env(safe-area-inset-bottom)]">
+                    <button
+                        onClick={onClose}
+                        className="w-14 h-14 rounded-full bg-neutral-900 dark:bg-neutral-100 text-neutral-50 dark:text-neutral-900 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+                    >
+
+                        <ArrowBigDown size={28} strokeWidth={2} />
+                    </button>
                 </div>
             </SheetContent>
         </Sheet>
