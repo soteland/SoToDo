@@ -38,8 +38,9 @@ export function ListPage() {
 
     // Flush all pending checks on unmount so nothing is silently dropped
     useEffect(() => {
+        const pending = pendingChecks.current
         return () => {
-            Object.entries(pendingChecks.current).forEach(([itemId, timer]) => {
+            Object.entries(pending).forEach(([itemId, timer]) => {
                 clearTimeout(timer)
                 checkOffItem(itemId)
             })

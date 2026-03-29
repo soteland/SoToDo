@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { LogOut, ChevronRight, Moon, Sun, Monitor } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { Button } from '../components/ui/button'
 import { useNavigate } from 'react-router-dom'
 import { PrimaryButton } from '@/components/ui/PrimaryButton'
 
@@ -53,7 +52,7 @@ export function SettingsPage() {
                     <p className="text-xs text-neutral-400 uppercase tracking-wide px-4 mb-1">{section.title}</p>
                     <div className="border-t border-neutral-100 dark:border-neutral-800">
                         {section.title === 'Utseende' ? (
-                            <div className="px-4 py-3 flex items-center justify-between min-h-[52px] border-b border-neutral-100 dark:border-neutral-800">
+                            <div className="px-4 py-3 flex items-center justify-between min-h-13 border-b border-neutral-100 dark:border-neutral-800">
                                 <span className="text-sm text-neutral-900 dark:text-neutral-100">Tema</span>
                                 <div className="flex gap-1">
                                     {([['system', Monitor], ['light', Sun], ['dark', Moon]] as [Theme, React.ElementType][]).map(([t, Icon]) => (
@@ -75,7 +74,7 @@ export function SettingsPage() {
                                 <button
                                     key={item.label}
                                     onClick={item.onPress}
-                                    className="w-full flex items-center justify-between px-4 min-h-[52px] border-b border-neutral-100 dark:border-neutral-800 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
+                                    className="w-full flex items-center justify-between px-4 min-h-13 border-b border-neutral-100 dark:border-neutral-800 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
                                 >
                                     <span className="text-sm text-neutral-900 dark:text-neutral-100">{item.label}</span>
                                     <ChevronRight size={16} className="text-neutral-400" />

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { cn } from '../lib/utils'
 
 export const UNITS = ['stk', 'g', 'kg', 'dl', 'L']

@@ -18,7 +18,7 @@ export function ListsPage() {
                 <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Alle lister</h1>
                 <button
                     onClick={() => navigate('/ny-liste')}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-neutral-500"
+                    className="min-w-11 min-h-11 flex items-center justify-center text-neutral-500"
                 >
                     <Plus size={22} />
                 </button>
@@ -38,10 +38,10 @@ export function ListsPage() {
                         <button
                             key={list.id}
                             onClick={() => navigate(`/liste/${list.id}`)}
-                            className="w-full flex items-center gap-3 px-4 min-h-[60px] border-b border-neutral-100 dark:border-neutral-900 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
+                            className="w-full flex items-center gap-3 px-4 min-h-15 border-b border-neutral-100 dark:border-neutral-900 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
                         >
                             <div
-                                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                                 style={{ backgroundColor: color }}
                             >
                                 <SvgIcon name={iconName} className="w-5 h-5 text-white" />

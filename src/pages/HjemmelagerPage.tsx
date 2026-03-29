@@ -53,10 +53,12 @@ function AddItemSheet({ open, onClose }: AddSheetProps) {
         if (open) {
             setTimeout(() => inputRef.current?.focus(), 300)
         } else {
-            setSearch('')
-            setQuantity(1)
-            setUnit('stk')
-            setExpiresAt('')
+            setTimeout(() => {
+                setSearch('')
+                setQuantity(1)
+                setUnit('stk')
+                setExpiresAt('')
+            }, 0)
         }
     }, [open])
 
@@ -196,7 +198,7 @@ function AddItemSheet({ open, onClose }: AddSheetProps) {
                             <button
                                 key={item.id}
                                 onClick={() => addItem(item.name, item.unit)}
-                                className="w-full flex items-center gap-3 px-4 min-h-[52px] border-b border-neutral-100 dark:border-neutral-900 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
+                                className="w-full flex items-center gap-3 px-4 min-h-13 border-b border-neutral-100 dark:border-neutral-900 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
                             >
                                 <span className="flex-1 text-sm text-neutral-900 dark:text-neutral-100">
                                     {item.name}
@@ -412,7 +414,7 @@ function RecentlyPurchasedSection({ hjemmelagerItems }: { hjemmelagerItems: Hjem
             {suggestions.map(item => (
                 <div
                     key={item.id}
-                    className="flex items-center gap-3 px-4 min-h-[52px] border-b border-neutral-100 dark:border-neutral-800"
+                    className="flex items-center gap-3 px-4 min-h-13 border-b border-neutral-100 dark:border-neutral-800"
                 >
                     <span className="flex-1 text-sm text-neutral-900 dark:text-neutral-100">{item.name}</span>
                     {formatQty(item.quantity, item.unit) && (
@@ -505,15 +507,18 @@ export function HjemmelagerPage() {
         queryFn: fetchHjemmelager,
     })
 
-    const expired = items?.filter(i => i.expires_at && new Date(i.expires_at) < new Date()) ?? []
+    // eslint-disable-next-line react-hooks/purity
+    const now = Date.now()
+
+    const expired = items?.filter(i => i.expires_at && new Date(i.expires_at).getTime() < now) ?? []
     const expiringSoon = items?.filter(i => {
-        if (!i.expires_at || new Date(i.expires_at) < new Date()) return false
-        const diff = (new Date(i.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        if (!i.expires_at || new Date(i.expires_at).getTime() < now) return false
+        const diff = (new Date(i.expires_at).getTime() - now) / (1000 * 60 * 60 * 24)
         return diff <= 3
     }) ?? []
     const ok = items?.filter(i => {
         if (!i.expires_at) return true
-        const diff = (new Date(i.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        const diff = (new Date(i.expires_at).getTime() - now) / (1000 * 60 * 60 * 24)
         return diff > 3
     }) ?? []
 

@@ -14,7 +14,6 @@ export function SvgIcon({ name, className, style }: SvgIconProps) {
 
   useEffect(() => {
     if (cache[name]) {
-      setSvg(cache[name])
       return
     }
     fetch(`/icons/${name}.svg`)

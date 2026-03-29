@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, Plus, Trash2, Link, Loader, ChevronUp, ChevronDown, Search, Minus } from 'lucide-react'
@@ -29,9 +29,6 @@ interface DraftItem {
 
 let keyCounter = 0
 function newKey() { return String(++keyCounter) }
-function blankItem(): DraftItem {
-    return { key: newKey(), item_name: '', quantity: 1, unit: 'stk', is_pantry_staple: false }
-}
 
 export function RecipeEditPage() {
     const { id } = useParams<{ id: string }>()
@@ -176,7 +173,7 @@ export function RecipeEditPage() {
             <div className="flex items-center gap-2 px-4 pt-[env(safe-area-inset-top)] py-3 border-b border-neutral-100 dark:border-neutral-800">
                 <button
                     onClick={() => navigate(-1)}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 text-neutral-500"
+                    className="min-w-11 min-h-11 flex items-center justify-center -ml-2 text-neutral-500"
                 >
                     <ChevronLeft size={24} />
                 </button>
@@ -186,7 +183,7 @@ export function RecipeEditPage() {
                 {isEdit && (
                     <button
                         onClick={() => { if (confirm('Slett oppskrift?')) deleteMutation.mutate() }}
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-neutral-300 dark:text-neutral-600 active:text-red-500 transition-colors"
+                        className="min-w-11 min-h-11 flex items-center justify-center text-neutral-300 dark:text-neutral-600 active:text-red-500 transition-colors"
                     >
                         <Trash2 size={18} />
                     </button>
@@ -439,9 +436,11 @@ function IngredientPickerSheet({ open, onClose, catalog, onAdd }: {
         if (open) {
             setTimeout(() => inputRef.current?.focus(), 300)
         } else {
-            setSearch('')
-            setQuantity(1)
-            setUnit('stk')
+            setTimeout(() => {
+                setSearch('')
+                setQuantity(1)
+                setUnit('stk')
+            }, 0)
         }
     }, [open])
 
@@ -504,7 +503,8 @@ function IngredientPickerSheet({ open, onClose, catalog, onAdd }: {
                             className="pl-9 h-11"
                             onKeyDown={e => {
                                 if (e.key === 'Enter' && search.trim()) {
-                                    exactMatch ? pick(exactMatch.name, exactMatch.unit) : pick(search)
+                                    if (exactMatch) pick(exactMatch.name, exactMatch.unit)
+                                    else pick(search)
                                 }
                             }}
                         />
@@ -555,7 +555,7 @@ function IngredientPickerSheet({ open, onClose, catalog, onAdd }: {
                             <button
                                 key={item.id}
                                 onClick={() => pick(item.name, item.unit)}
-                                className="w-full flex items-center gap-3 px-4 min-h-[52px] border-b border-neutral-100 dark:border-neutral-900 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
+                                className="w-full flex items-center gap-3 px-4 min-h-13 border-b border-neutral-100 dark:border-neutral-900 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
                             >
                                 <span className="flex-1 text-sm text-neutral-900 dark:text-neutral-100">{item.name}</span>
                                 {item.is_pantry_staple && (
@@ -573,9 +573,9 @@ function IngredientPickerSheet({ open, onClose, catalog, onAdd }: {
                     {search.trim() && !exactMatch && (
                         <button
                             onClick={() => pick(search)}
-                            className="w-full flex items-center gap-3 px-4 min-h-[52px] text-left active:bg-neutral-50 dark:active:bg-neutral-900"
+                            className="w-full flex items-center gap-3 px-4 min-h-13 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
                         >
-                            <div className="w-7 h-7 rounded-full bg-neutral-900 dark:bg-neutral-100 flex items-center justify-center text-white dark:text-neutral-900 flex-shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-neutral-900 dark:bg-neutral-100 flex items-center justify-center text-white dark:text-neutral-900 shrink-0">
                                 <Plus size={16} />
                             </div>
                             <span className="text-sm text-neutral-600 dark:text-neutral-400">

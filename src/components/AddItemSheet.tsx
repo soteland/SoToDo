@@ -17,7 +17,7 @@ interface AddItemSheetProps {
     listColor: string
 }
 
-export function AddItemSheet({ open, onClose, listId, listTypeId: _listTypeId, listColor }: AddItemSheetProps) {
+export function AddItemSheet({ open, onClose, listId, listColor }: AddItemSheetProps) {
     const queryClient = useQueryClient()
     const [search, setSearch] = useState('')
     const [quantity, setQuantity] = useState(1)
@@ -35,9 +35,11 @@ export function AddItemSheet({ open, onClose, listId, listTypeId: _listTypeId, l
         if (open) {
             setTimeout(() => inputRef.current?.focus(), 300)
         } else {
-            setSearch('')
-            setQuantity(1)
-            setUnit('stk')
+            setTimeout(() => {
+                setSearch('')
+                setQuantity(1)
+                setUnit('stk')
+            }, 0)
         }
     }, [open])
 
@@ -174,7 +176,7 @@ export function AddItemSheet({ open, onClose, listId, listTypeId: _listTypeId, l
                             <button
                                 key={item.id}
                                 onClick={() => addItem(item.name, item.unit)}
-                                className="w-full flex items-center gap-3 px-4 min-h-[52px] border-b border-neutral-100 dark:border-neutral-900 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
+                                className="w-full flex items-center gap-3 px-4 min-h-13 border-b border-neutral-100 dark:border-neutral-900 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
                             >
                                 <span className="flex-1 text-sm text-neutral-900 dark:text-neutral-100">
                                     {item.name}
@@ -197,10 +199,10 @@ export function AddItemSheet({ open, onClose, listId, listTypeId: _listTypeId, l
                     {search.trim() && !exactMatch && (
                         <button
                             onClick={() => addItem(search)}
-                            className="w-full flex items-center gap-3 px-4 min-h-[52px] text-left active:bg-neutral-50 dark:active:bg-neutral-900"
+                            className="w-full flex items-center gap-3 px-4 min-h-13 text-left active:bg-neutral-50 dark:active:bg-neutral-900"
                         >
                             <div
-                                className="w-7 h-7 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                                className="w-7 h-7 rounded-full flex items-center justify-center text-white shrink-0"
                                 style={{ backgroundColor: listColor }}
                             >
                                 <Plus size={16} />
